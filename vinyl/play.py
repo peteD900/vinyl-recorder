@@ -7,7 +7,12 @@ from telegram.ext import (
     filters,
 )
 
-TOKEN = "8285341215:AAG8eR3xRYCpeATsfaPPvBYJohF3WuHzTRc"
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
