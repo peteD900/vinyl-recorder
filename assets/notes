@@ -1,0 +1,11 @@
+# Google service account
+Ask gpt how to setup a service account. Once have json key it's easier to 
+put in .env file as base64. Save json locally e.g. desktop then do:
+
+base64 -w 0 python-projects-482809-a127ebd5b3d9.json > service-account.b64 
+
+Copy the long string unquoted into .env
+
+Following this need to add a folder in PERSONAL google drive e.g. python.
+Then this needs sharing with the google account email looks like:
+ dave-python@python-projects-11111.iam.gserviceaccount.com 
