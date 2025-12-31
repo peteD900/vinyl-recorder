@@ -28,7 +28,7 @@ class DiscogEnricher:
         """
         try:
             query = f"{artist} {album}"
-            results = self.d.search(query, type="master")
+            results = self.d.search(query, type="release")
 
             # Check if any results
             if not results or results.count == 0:

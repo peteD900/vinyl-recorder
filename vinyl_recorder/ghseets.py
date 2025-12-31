@@ -55,7 +55,12 @@ class GoogleSheeter:
 
     def is_duplicate(self, artist: str, album_title: str) -> bool:
         """Check if album already exists in sheet."""
+
         df = self.refresh_df()
+        # Handle empty sheet
+        if df.empty or "artist" not in df.columns:
+            return False
+
         matches = df[(df["artist"] == artist) & (df["album_title"] == album_title)]
         return len(matches) > 0
 
@@ -103,6 +108,10 @@ class GoogleSheeter:
         Yields (row_number, row_dict) for each row needing enrichment.
         """
         df = self.refresh_df()
+
+        # Handle empty sheet or missing column
+        if df.empty or "discogs_title" not in df.columns:
+            return  # No rows to enrich
 
         # Find rows where discogs_title is empty/missing
         mask = (df["discogs_title"].isna()) | (df["discogs_title"] == "")

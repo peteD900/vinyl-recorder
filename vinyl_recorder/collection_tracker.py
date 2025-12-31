@@ -109,9 +109,25 @@ class CollectionTracker:
 
         self.sheeter.append_row(row_data=new_row)
 
-    def add_result_telegram(self, image_name, result: VinylData):
-        # For Telegram - no full_path, just image_name
-        pass
+    def add_result_telegram(self, image_name: str, result: VinylData):
+        """Add result from Telegram (no full_path)."""
+        date_now = datetime.now().isoformat(timespec="seconds")
+
+        new_row = [
+            image_name,
+            date_now,
+            "telegram",  # source
+            result.success,
+            result.artist,
+            result.album_title,
+            result.album_year,
+            result.confidence,
+            "",  # discogs_title
+            "",  # image_url
+            "",  # tracklist
+        ]
+
+        self.sheeter.append_row(row_data=new_row)
 
 
 if __name__ == "__main__":

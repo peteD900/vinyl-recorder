@@ -36,7 +36,7 @@ class VinylIdentifier:
 
         return image_data
 
-    def identifier(self, image_base64: str) -> VinylData:
+    def identify(self, image_base64: str) -> VinylData:
         """
         Pass base64 image to llm for identification.
 
@@ -88,7 +88,7 @@ class VinylIdentifier:
 
         image_base64 = self.load_image_base64(image_path)
 
-        results = self.identifier(image_base64)
+        results = self.identify(image_base64)
 
         return results
 
