@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  vinyl-web:
+    build: .
+    container_name: vinyl-web
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    env_file:
+      - .env
+    environment:
+      - APP_ENV=${APP_ENV:-test}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  vinyl-bot:
+    build: .
+    container_name: vinyl-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - APP_ENV=${APP_ENV:-test}
+    command: python -m vinyl_recorder.telegram_bot
+    depends_on:
+      - vinyl-web

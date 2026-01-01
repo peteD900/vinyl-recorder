@@ -74,3 +74,9 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
+    # Run the app
+    # uvicorn vinyl_recorder.web_app:app --reload
+
+    # Open browser to:
+    # http://localhost:8000
