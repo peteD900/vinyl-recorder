@@ -21,7 +21,20 @@ from vinyl_recorder.discogs import DiscogEnricher
 from vinyl_recorder.collection_tracker import CollectionTracker
 from vinyl_recorder.ghseets import GoogleSheeter
 
-logger = get_logger()
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+
+# Silence noisy third-party libraries (prevents token exposure)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("telegram").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+
+# Your app logger
+logger = logging.getLogger(__name__)
 
 
 class VinylBot:
@@ -30,7 +43,7 @@ class VinylBot:
         self.identifier = identifier
         self.enricher = enricher
         self.tracker = tracker
-        self.bot_token = Config.BOT_TOKEN
+        self.bot_token = Config.bot_token()
         self.pending_photos = {}  # {user_id: {image data and results}}
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):

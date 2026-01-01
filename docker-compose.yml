@@ -7,13 +7,11 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    environment:
-      - APP_ENV=prod
     ports:
-      - "8000:8000"  # internal; NPM will proxy
+      - "8000:8000"  
     networks:
       - default
-      - jellyfin_default  # attach to NPM network
+      - jellyfin_default  
 
   vinyl-bot:
     build: .
@@ -21,14 +19,10 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    environment:
-      - APP_ENV=prod
     command: python -m vinyl_recorder.telegram_bot
     depends_on:
       - vinyl-web
-    networks:
-      - default
-      - jellyfin_default  # optional, if it needs to reach web container
+
 
 networks:
   default:

@@ -8,7 +8,7 @@ load_dotenv()
 
 class Config:
     # ENV
-    APP_ENV = os.getenv("APP_ENV", "test")
+    APP_ENV = os.getenv("APP_ENV")
 
     # LLM OPENAI
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -16,6 +16,7 @@ class Config:
 
     # TELEGRAM
     BOT_TOKEN = os.getenv("BOT_TOKEN")
+    BOT_TOKEN_TEST = os.getenv("BOT_TOKEN_TEST")
 
     # DISCOGS
     DISCOGS_API_KEY = os.getenv("DISCOGS_API_KEY")
@@ -32,6 +33,14 @@ class Config:
 
         if cls.APP_ENV == "test":
             return cls.VINYL_SHEET_TEST
+
+    @classmethod
+    def bot_token(cls) -> str:
+        if cls.APP_ENV == "prod":
+            return cls.BOT_TOKEN
+
+        if cls.APP_ENV == "test":
+            return cls.BOT_TOKEN_TEST
 
 
 def get_logger(name: str = __name__) -> logging.Logger:
@@ -50,3 +59,7 @@ def get_logger(name: str = __name__) -> logging.Logger:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
     return logging.getLogger(name)
+
+
+if __name__ == "__main__":
+    print(Config.APP_ENV)
