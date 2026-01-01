@@ -1,22 +1,19 @@
-version: '3.8'
+version: "3.8"
 
 services:
   vinyl-web:
     build: .
     container_name: vinyl-web
     restart: unless-stopped
-    ports:
-      - "8000:8000"
-      #- "8001:8000"
     env_file:
       - .env
     environment:
-      - APP_ENV=${APP_ENV:-test}
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - APP_ENV=prod
+    ports:
+      - "8000:8000"  # internal; NPM will proxy
+    networks:
+      - default
+      - jellyfin_default  # attach to NPM network
 
   vinyl-bot:
     build: .
@@ -25,7 +22,15 @@ services:
     env_file:
       - .env
     environment:
-      - APP_ENV=${APP_ENV:-test}
+      - APP_ENV=prod
     command: python -m vinyl_recorder.telegram_bot
     depends_on:
       - vinyl-web
+    networks:
+      - default
+      - jellyfin_default  # optional, if it needs to reach web container
+
+networks:
+  default:
+  jellyfin_default:
+    external: true
