@@ -1,14 +1,22 @@
 import os
 from dotenv import load_dotenv
+from pyprojroot import here
 import logging
 
 # Load environment variables
 load_dotenv()
 
+# For relative paths
+LOCAL_WD = here()
+
 
 class Config:
     # ENV
     APP_ENV = os.getenv("APP_ENV")
+
+    # LOCAL IMAGE DIRS
+    IMAGES_DIR_PROD = LOCAL_WD / "data/all_images"
+    IMAGES_DIR_TEST = LOCAL_WD / "data/test_images"
 
     # LLM OPENAI
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -41,6 +49,14 @@ class Config:
 
         if cls.APP_ENV == "test":
             return cls.BOT_TOKEN_TEST
+
+    @classmethod
+    def local_image_dir(cls) -> str:
+        if cls.APP_ENV == "prod":
+            return cls.IMAGES_DIR_PROD
+
+        if cls.APP_ENV == "test":
+            return cls.IMAGES_DIR_TEST
 
 
 def get_logger(name: str = __name__) -> logging.Logger:

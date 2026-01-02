@@ -1,0 +1,19 @@
+version: "3.8"
+
+services:
+  vinyl-web:
+    ports: []  # Remove external port exposure
+    expose:
+      - "8000"  # Only accessible within Docker networks
+    networks:
+      - default
+      - jellyfin_default
+    
+  vinyl-bot:
+    networks:
+      - default
+      - jellyfin_default
+
+networks:
+  jellyfin_default:
+    external: true

@@ -3,21 +3,20 @@ Bulk identification and enrichment of local album images.
 Run with: python scripts/run_bulk_identification.py
 """
 
-from pathlib import Path
 from pyprojroot import here
+
 from vinyl_recorder.collection_tracker import CollectionTracker
 from vinyl_recorder.vinyl_cover_identifier import VinylIdentifier
 from vinyl_recorder.discogs import DiscogEnricher
 from vinyl_recorder.ghseets import GoogleSheeter
-from vinyl_recorder.config import get_logger
+from vinyl_recorder.config import get_logger, Config
 
 logger = get_logger()
 
 
 def main():
     # Configuration
-    LOCAL_WD = here()
-    IMAGES_DIR = LOCAL_WD / "data/all_images"
+    IMAGES_DIR = Config.local_image_dir()
 
     logger.info("Starting bulk identification and enrichment")
     logger.info(f"Images directory: {IMAGES_DIR}")
@@ -50,7 +49,7 @@ def main():
     logger.info("\nStep 2: Enriching with Discogs data...")
     enricher.enrich_all_pending()
 
-    logger.info(f"\n✓ Process complete!")
+    logger.info("\n✓ Process complete!")
     logger.info(f"  Identified: {len(pending_list)} albums")
 
 

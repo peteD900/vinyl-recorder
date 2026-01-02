@@ -8,11 +8,13 @@ services:
     env_file:
       - .env
     ports:
-      - "8000:8000"  
-    networks:
-      - default
-      - jellyfin_default  
-
+      - "8001:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
   vinyl-bot:
     build: .
     container_name: vinyl-bot
@@ -22,9 +24,3 @@ services:
     command: python -m vinyl_recorder.telegram_bot
     depends_on:
       - vinyl-web
-
-
-networks:
-  default:
-  jellyfin_default:
-    external: true

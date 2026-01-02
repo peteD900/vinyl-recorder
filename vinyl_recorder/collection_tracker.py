@@ -107,6 +107,13 @@ class CollectionTracker:
             "",  # tracklist - filled during enrichment
         ]
 
+        # There can be duplicated if albums were added from telegram
+        # before local because the image name from telegram is
+        # not different and not in the list of images here.
+        if self.sheeter.is_duplicate(artist, album_title):
+            logger.warning(f"Already got data for {artist} - {album_title}")
+            return
+
         self.sheeter.append_row(row_data=new_row)
 
     def add_result_telegram(self, image_name: str, result: VinylData):
