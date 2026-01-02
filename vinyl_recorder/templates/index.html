@@ -4,108 +4,139 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Katie's Vinyl Collection</title>
+
 <style>
-    /* Basic reset */
-    * { margin:0; padding:0; box-sizing:border-box; }
-    
-    body {
-        font-family: 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;
-        background: #f5f5f5;
-        color: #333;
-        line-height: 1.4;
-        padding: 20px;
-    }
+* { margin:0; padding:0; box-sizing:border-box; }
 
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #fafafa;
+    color: #111;
+}
+
+/* Page container */
+.page {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 16px 20px 40px;
+}
+
+h1 {
+    font-weight: 700;
+    font-size: 2.2rem;
+    margin-bottom: 6px;
+}
+
+.subtitle {
+    color: #666;
+    margin-bottom: 18px;
+    font-size: 0.95rem;
+}
+
+/* Controls */
+.controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+}
+
+.search-box,
+.filter-select {
+    padding: 10px 14px;
+    border-radius: 999px;
+    border: 1px solid #ddd;
+    background: white;
+    font-size: 0.9rem;
+}
+
+/* Grid */
+.album-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+}
+
+/* Cards */
+.album-card {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.album-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+}
+
+.album-cover {
+    width: 100%;
+    display: block;
+    aspect-ratio: 1;
+    object-fit: cover;
+}
+
+.album-info {
+    padding: 10px 12px 12px;
+}
+
+.artist {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #333;
+}
+
+.album-title {
+    font-size: 0.85rem;
+    color: #555;
+}
+
+.album-year {
+    font-size: 0.75rem;
+    color: #888;
+}
+
+/* Tracklist */
+.tracklist {
+    display: none;
+    font-size: 0.75rem;
+    color: #555;
+    margin-top: 6px;
+}
+
+.tracklist.show {
+    display: block;
+}
+
+/* Mobile */
+@media (max-width: 600px) {
     h1 {
-        text-align: center;
-        font-weight: 600;
-        font-size: 2rem;
-        margin-bottom: 10px;
-        color: #222;
+        font-size: 1.6rem;
     }
 
-    .subtitle {
-        text-align: center;
-        color: #666;
-        margin-bottom: 20px;
-        font-size: 1rem;
-    }
-
-    .controls {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        justify-content: center;
-        margin-bottom: 20px;
-    }
-
-    .search-box, .filter-select, .grid-btn {
-        padding: 10px 15px;
-        border-radius: 8px;
-        border: 1px solid #ccc;
-        font-size: 0.95rem;
-    }
-
-    /* Pinterest-style grid */
     .album-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-        gap: 15px;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     }
-
-    .album-card {
-        background: white;
-        border-radius: 12px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        overflow: hidden;
-        cursor: pointer;
-        transition: transform 0.2s, box-shadow 0.2s;
-        display: flex;
-        flex-direction: column;
-    }
-
-    .album-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-    }
-
-    .album-cover {
-        width: 100%;
-        display: block;
-        aspect-ratio: 1;
-        object-fit: cover;
-    }
-
-    .album-info {
-        padding: 10px;
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-    }
-
-    .artist { font-weight: 600; font-size: 0.95rem; color: #444; margin-bottom: 3px; }
-    .album-title { font-size: 0.9rem; margin-bottom: 2px; color: #222; }
-    .album-year { font-size: 0.8rem; color: #666; margin-bottom: 5px; }
-
-    .tracklist { display: none; font-size: 0.8rem; color: #555; margin-top: 5px; }
-    .tracklist.show { display: block; }
-
-    /* Mobile tweaks */
-    @media (max-width: 600px) {
-        .album-grid {
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        }
-        h1 { font-size: 1.5rem; }
-    }
-
+}
 </style>
 </head>
+
 <body>
-    <h1>🎵 Katie's Vinyl Collection</h1>
-    <div class="subtitle">{{ total_count }} albums and counting</div>
+<div class="page">
+
+    <h1>Katie's Vinyl Collection</h1>
 
     <div class="controls">
-        <input type="text" id="searchBox" class="search-box" placeholder="Search artist or album..." onkeyup="filterAlbums()">
+        <input
+            type="text"
+            id="searchBox"
+            class="search-box"
+            placeholder="Search artist or album..."
+            onkeyup="filterAlbums()"
+        >
+
         <select id="sortSelect" class="filter-select" onchange="sortAlbums()">
             <option value="artist">Artist</option>
             <option value="album">Album Title</option>
@@ -114,12 +145,22 @@
 
     <div class="album-grid" id="albumGrid">
         {% for album in albums %}
-        <div class="album-card" data-artist="{{ album.artist|lower }}" data-album="{{ album.album_title|lower }}" onclick="toggleTracklist(this)">
-            <img class="album-cover" src="{{ album.image_url or 'https://via.placeholder.com/240x240?text=No+Image' }}" alt="{{ album.artist }} - {{ album.album_title }}">
+        <div
+            class="album-card"
+            data-artist="{{ album.artist|lower }}"
+            data-album="{{ album.album_title|lower }}"
+            onclick="toggleTracklist(this)"
+        >
+            <img
+                class="album-cover"
+                src="{{ album.image_url or 'https://via.placeholder.com/240x240?text=No+Image' }}"
+                alt="{{ album.artist }} - {{ album.album_title }}"
+            >
+
             <div class="album-info">
                 <div class="artist">{{ album.artist }}</div>
                 <div class="album-title">{{ album.album_title }}</div>
-                <div class="album-year">{{ album.album_year or 'Year Unknown' }}</div>
+
                 {% if album.tracklist %}
                 <div class="tracklist">
                     <strong>Tracks:</strong>
@@ -133,32 +174,40 @@
         {% endfor %}
     </div>
 
-    <script>
-        function toggleTracklist(card) {
-            const tracklist = card.querySelector('.tracklist');
-            if (tracklist) tracklist.classList.toggle('show');
-        }
+</div>
 
-        function sortAlbums() {
-            const sortBy = document.getElementById('sortSelect').value;
-            const grid = document.getElementById('albumGrid');
-            const cards = Array.from(grid.querySelectorAll('.album-card'));
-            cards.sort((a,b)=>{
-                let aVal = sortBy === 'artist' ? a.dataset.artist : a.dataset.album;
-                let bVal = sortBy === 'artist' ? b.dataset.artist : b.dataset.album;
-                return aVal.localeCompare(bVal);
-            });
-            cards.forEach(c=>grid.appendChild(c));
-        }
+<script>
+function toggleTracklist(card) {
+    const tracklist = card.querySelector('.tracklist');
+    if (tracklist) tracklist.classList.toggle('show');
+}
 
-        function filterAlbums() {
-            const term = document.getElementById('searchBox').value.toLowerCase();
-            const cards = document.querySelectorAll('.album-card');
-            cards.forEach(c=>{
-                const match = c.dataset.artist.includes(term) || c.dataset.album.includes(term);
-                c.style.display = match ? 'block' : 'none';
-            });
-        }
-    </script>
+function sortAlbums() {
+    const sortBy = document.getElementById('sortSelect').value;
+    const grid = document.getElementById('albumGrid');
+    const cards = Array.from(grid.querySelectorAll('.album-card'));
+
+    cards.sort((a, b) => {
+        const aVal = sortBy === 'artist' ? a.dataset.artist : a.dataset.album;
+        const bVal = sortBy === 'artist' ? b.dataset.artist : b.dataset.album;
+        return aVal.localeCompare(bVal);
+    });
+
+    cards.forEach(card => grid.appendChild(card));
+}
+
+function filterAlbums() {
+    const term = document.getElementById('searchBox').value.toLowerCase();
+    const cards = document.querySelectorAll('.album-card');
+
+    cards.forEach(card => {
+        const match =
+            card.dataset.artist.includes(term) ||
+            card.dataset.album.includes(term);
+        card.style.display = match ? 'block' : 'none';
+    });
+}
+</script>
+
 </body>
 </html>
