@@ -1,50 +1,77 @@
-# to use
- - need google sheet with correct headers
-  - add headers
- - need google service account and convert json to b64:
+# Vinyl Collection Manager
 
- base64 -w 0 python-projects-482809-a127ebd5b3d9.json > service-account.b64 
+Personal tool to catalogue vinyl records using album cover photos.
 
-Copy the long string unquoted into .env
+Album covers are identified via an LLM (single images, bulk local files, or via a Telegram bot). Metadata and tracklists are enriched from Discogs and stored in Google Sheets. A small FastAPI web app provides a basic UI.
 
-Following this need to add a folder in PERSONAL google drive e.g. python.
-Then this needs sharing with the google account email looks like:
- dave-python@python-projects-11111.iam.gserviceaccount.com 
+Designed for local development or VPS deployment behind an Nginx reverse proxy. Assumes a personal setup.
 
- - need telegram bot
-  - add setup 
- - need discogs account and api toke
- - need openai account and api key
- - if want test mode (optional) need two keys for bot and two google sheets
+## Requirements
 
- - need .env file with:
+- Google Cloud service account (Sheets API)
+- OpenAI API key
+- Discogs API token
+- Telegram account (for bot)
+- Optional: VPS with Nginx / Nginx Proxy Manager
 
+## Setup
 
- # For switching google sheets
-#APP_ENV=prod        
-APP_ENV=test        
+1. Clone the repo  
+   git clone https://github.com/peteD900/vinyl-recorder.git  
+   cd vinyl-recorder
 
-# TELEGRAM
-BOT_TOKEN =
-BOT_TOKEN_TEST = 
+2. Create a Google Sheet with these headers (exact order):  
+   image_name | process_date | source | success | artist | album_title | album_year | confidence | discogs_title | image_url | tracklist
 
-# LLM
-OPENAI_API_KEY = 
+3. Create a Google Cloud service account, enable Sheets API, download the JSON key, and base64-encode it:  
+   base64 -w 0 your-service-account.json > service-account.b64
 
-# DISCOGS
-DISCOGS_API_KEY = 
+4. Share the Google Sheet with the service account email (Editor access)
 
-# GSHEETS
-GOOGLE_SERVICE_ACCOUNT = 
-VINYL_SHEET_TEST = 
-VINYL_SHEET_PROD = 
+5. Create a Telegram bot via @BotFather and save the token
 
-git clone
-docker compose up --build 
-need -d?
+6. Create a `.env` file:
 
-      
-# nginx setup
+   APP_ENV=test  
+   BOT_TOKEN=prod_bot_token  
+   BOT_TOKEN_TEST=test_bot_token  
+   OPENAI_API_KEY=sk-...  
+   OPENAI_MODEL=gpt-4o  
+   DISCOGS_API_KEY=discogs_token  
+   GOOGLE_SERVICE_ACCOUNT=base64_service_account_json  
+   VINYL_SHEET_TEST=test_sheet_id  
+   VINYL_SHEET_PROD=prod_sheet_id  
 
-- subdomain from cloudflare
- - nginx reverse proxy port 8000 cotainer-name:port subdom.dom with ssl
+## Run Locally
+
+Docker:  
+docker-compose up  
+
+Web UI: http://localhost:8001
+
+Without Docker:  
+uv sync  
+uvicorn vinyl_recorder.web_app:app --reload --port 8001  
+python vinyl_recorder/telegram_bot.py
+
+## Production (VPS)
+
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+Use Nginx / Nginx Proxy Manager to forward traffic to the web container (port 8000) and enable SSL.
+
+## Usage
+
+Telegram:
+- Send an album cover photo to the bot
+- Confirm identification
+- Add to collection
+
+Bulk (local files):
+- Set image path in config
+- Run: python scripts/run_bulk_identification.py
+
+## Notes
+
+- Only one Telegram bot instance can run at a time
+- Google Sheets must be shared with the service account email
