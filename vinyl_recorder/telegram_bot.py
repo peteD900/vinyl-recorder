@@ -3,9 +3,11 @@ Telegram bot for identifying and adding vinyl albums to collection.
 """
 
 import base64
-import asyncio
 from datetime import datetime
+import json
+import asyncio
 from io import BytesIO
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
@@ -15,11 +17,12 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
-from vinyl_recorder.config import Config, get_logger
+from vinyl_recorder.config import Config
 from vinyl_recorder.vinyl_cover_identifier import VinylIdentifier
 from vinyl_recorder.discogs import DiscogEnricher
 from vinyl_recorder.collection_tracker import CollectionTracker
 from vinyl_recorder.ghseets import GoogleSheeter
+from vinyl_recorder.album_recommender import AlbumRecommender
 
 import logging
 
@@ -38,11 +41,19 @@ logger = logging.getLogger(__name__)
 
 
 class VinylBot:
-    def __init__(self, sheeter, identifier, enricher, tracker):
+    def __init__(
+        self,
+        sheeter: GoogleSheeter,
+        identifier: VinylIdentifier,
+        enricher: DiscogEnricher,
+        tracker: CollectionTracker,
+        recommender: AlbumRecommender,
+    ):
         self.sheeter = sheeter
         self.identifier = identifier
         self.enricher = enricher
         self.tracker = tracker
+        self.recommender = recommender
         self.bot_token = Config.bot_token()
         self.pending_photos = {}  # {user_id: {image data and results}}
 
@@ -53,23 +64,61 @@ class VinylBot:
             "Send me a photo of an album cover and I'll identify it!\n\n"
             "Commands:\n"
             "/start - Show this message\n"
-            "/stats - Show collection stats",
+            "/recommend - Recommend albums",
             parse_mode="Markdown",
         )
 
-    async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Show collection statistics."""
-        df = self.sheeter.refresh_df()
-        total = len(df)
-        enriched = len(df[df["discogs_title"] != ""])
+    async def recommend_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """
+        Starts the album recommendation flow.
+        Sends inline buttons to choose recommendation distance.
+        """
+
+        keyboard = [
+            [
+                InlineKeyboardButton("🎯 Very close (2)", callback_data="distance:2"),
+                InlineKeyboardButton("🙂 Close (4)", callback_data="distance:4"),
+            ],
+            [
+                InlineKeyboardButton("😐 Balanced (6)", callback_data="distance:6"),
+                InlineKeyboardButton("🤪 Adventurous (8)", callback_data="distance:8"),
+            ],
+        ]
+
+        reply_markup = InlineKeyboardMarkup(keyboard)
 
         await update.message.reply_text(
-            f"📊 *Your Collection*\n\n"
-            f"Total albums: {total}\n"
-            f"Enriched: {enriched}\n"
-            f"Pending enrichment: {total - enriched}",
-            parse_mode="Markdown",
+            "How adventurous should the recommendations be?",
+            reply_markup=reply_markup,
         )
+
+    async def handle_recommend(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """User clicked Yes - run identification and enrichment."""
+        query = update.callback_query
+        await query.answer()
+        user_id = update.effective_user.id
+
+        _, distance = query.data.split(":")
+        distance = int(distance)
+
+        await query.edit_message_text("🔍 Recommending albums.. please wait")
+
+        logger.info(f"Recommending albums for user {user_id}")
+
+        results = self.recommender.recommend_albums(
+            taste_distance=distance, n_suggestions=5
+        )
+
+        albums = recommender.parse_albums(results)
+
+        message = "Recommended Albums:\n\n"
+        message += albums
+
+        await query.edit_message_text(message)
 
     async def handle_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle incoming photo - ask if user wants to identify."""
@@ -132,8 +181,6 @@ class VinylBot:
             # Step 1: Identify with LLM
             logger.info(f"Identifying album for user {user_id}")
             vinyl_data = self.identifier.identify(image_base64=pending["image_base64"])
-
-            print(vinyl_data.model_dump_json(indent=2))
 
             if not vinyl_data.success:
                 await query.edit_message_text(
@@ -227,6 +274,9 @@ class VinylBot:
         vinyl_data = pending["vinyl_data"]
         discogs_data = pending.get("discogs_data")
 
+        # Show processing message
+        await query.edit_message_text("🔍 Adding data to Google sheets... please wait")
+
         try:
             # Add to tracker (this adds identification data)
             logger.info(
@@ -243,8 +293,6 @@ class VinylBot:
                 row_num = self.sheeter.find_row_by_image_name(image_name)
 
                 if row_num:
-                    import json
-
                     self.sheeter.update_row_cells(
                         row_num,
                         {
@@ -263,20 +311,9 @@ class VinylBot:
             )
 
             if discogs_data and discogs_data.image_url:
-                success_msg += f"\n[View on Discogs]({discogs_data.image_url})"
+                success_msg += f"\n[Album cover]({discogs_data.image_url})"
 
             await query.edit_message_text(success_msg, parse_mode="Markdown")
-
-            # Send thumbnail if available
-            if discogs_data and discogs_data.image_url:
-                try:
-                    await context.bot.send_photo(
-                        chat_id=update.effective_chat.id,
-                        photo=discogs_data.image_url,
-                        caption=f"{vinyl_data.artist} - {vinyl_data.album_title}",
-                    )
-                except Exception as e:
-                    logger.warning(f"Could not send thumbnail: {e}")
 
         except Exception as e:
             logger.error(f"Error adding to collection: {e}")
@@ -311,11 +348,14 @@ class VinylBot:
         message += f"✨ Confidence: {vinyl_data.confidence}\n"
 
         if discogs_data:
-            message += f"\n📀 *Discogs Info:*\n"
-            message += f"Title: {discogs_data.discogs_title}\n"
-            message += f"Tracks: {len(discogs_data.tracklist)} songs\n"
+            tracks = "Tracks:\n"
+            for track in discogs_data.tracklist:
+                tracks += f"{track}\n"
+
+            message += "\n📀 *Discogs Info:*\n"
+            message += tracks
         else:
-            message += f"\n⚠️ Could not find on Discogs\n"
+            message += "\n⚠️ Could not find on Discogs\n"
 
         message += "\nAdd this to your collection?"
 
@@ -330,7 +370,7 @@ class VinylBot:
 
         # Add handlers
         application.add_handler(CommandHandler("start", self.start_command))
-        application.add_handler(CommandHandler("stats", self.stats_command))
+        application.add_handler(CommandHandler("recommend", self.recommend_command))
         application.add_handler(MessageHandler(filters.PHOTO, self.handle_photo))
 
         # Callback handlers for buttons
@@ -347,6 +387,11 @@ class VinylBot:
             CallbackQueryHandler(self.handle_confirm_cancel, pattern="^confirm_cancel$")
         )
 
+        # Callback for recommender
+        application.add_handler(
+            CallbackQueryHandler(self.handle_recommend, pattern="^distance")
+        )
+
         # Start polling
         logger.info("Bot is running... Press Ctrl+C to stop")
         application.run_polling(allowed_updates=Update.ALL_TYPES)
@@ -358,9 +403,14 @@ if __name__ == "__main__":
     identifier = VinylIdentifier()
     enricher = DiscogEnricher(sheeter=sheeter)
     tracker = CollectionTracker(sheeter=sheeter, source="telegram")
+    recommender = AlbumRecommender(sheeter=sheeter)
 
     # Start bot
     bot = VinylBot(
-        sheeter=sheeter, identifier=identifier, enricher=enricher, tracker=tracker
+        sheeter=sheeter,
+        identifier=identifier,
+        enricher=enricher,
+        tracker=tracker,
+        recommender=recommender,
     )
     bot.start()
