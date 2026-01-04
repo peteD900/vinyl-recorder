@@ -2,7 +2,7 @@ import base64
 from vinyl_recorder.llm_client import get_llm_client
 from vinyl_recorder.config import get_logger
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Optional
 
 logger = get_logger()
 

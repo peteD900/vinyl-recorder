@@ -40,24 +40,25 @@ class LLMClient:
         return completion
 
 
-def get_llm_client(llm="openai"):
+def get_llm_client(llm="openai", model=Config.OPENAI_MODEL):
     """
     Probably wont need a different llm but put this here in case.
     """
     if llm == "openai":
-        client = LLMClient(api_key=Config.OPENAI_API_KEY, model=Config.OPENAI_MODEL)
+        client = LLMClient(api_key=Config.OPENAI_API_KEY, model=model)
 
     return client
 
 
 if __name__ == "__main__":
-    llm = get_llm_client()
+    model = "gpt-4o"
+    llm = get_llm_client(model=model)
 
     messages = [
         {"role": "system", "content": "You're a helpful assistant."},
         {
             "role": "user",
-            "content": "What is the captical of Scotland?",
+            "content": "Give me 5 albums I might like similar to Beatles White Album?",
         },
     ]
 
