@@ -8,7 +8,7 @@ import json
 import asyncio
 from io import BytesIO
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -61,10 +61,13 @@ class VinylBot:
         """Handle /start command."""
         await update.message.reply_text(
             "🎵 *Vinyl Collection Bot*\n\n"
-            "Send me a photo of an album cover and I'll identify it!\n\n"
+            "Send a photo 📸 of an album cover to this bot. It will send get to an LLM for identification.\n"
+            "Follwing this the album can optionally be added to the overall collection in google sheets.\n"
+            "See links for sheet and website.\n\n"
             "Commands:\n"
             "/start - Show this message\n"
-            "/recommend - Recommend albums",
+            "/recommend - Recommend albums with 'distance' similarity metric.\n"
+            "/list_links - Show google sheet link and app with all albums",
             parse_mode="Markdown",
         )
 
@@ -361,6 +364,28 @@ class VinylBot:
 
         return message
 
+    async def list_links_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """List links command"""
+        sheets_link = "https://docs.google.com/spreadsheets/d/1mCft-YQTFZXSMLKZJC8Fj7r5QWc1Ih-ShZMeh7HgDKU/edit?gid=0#gid=0"
+        app_link = "https://vinyls.averageanalysis.uk/"
+
+        await update.message.reply_text(
+            f"🔗 *Links:*\n\n🌐 [Web App]({Config.WEB_APP_LINK})\n",
+            parse_mode="Markdown",
+        )
+
+    async def post_init(self, application):
+        """Set bot commands after initialization."""
+        await application.bot.set_my_commands(
+            [
+                BotCommand("start", "Help / list commands"),
+                BotCommand("recommend", "Recommend albums to buy"),
+                BotCommand("list_links", "List links for data"),
+            ]
+        )
+
     def start(self):
         """Start the bot."""
         logger.info("Starting Vinyl Bot...")
@@ -371,6 +396,8 @@ class VinylBot:
         # Add handlers
         application.add_handler(CommandHandler("start", self.start_command))
         application.add_handler(CommandHandler("recommend", self.recommend_command))
+        application.add_handler(CommandHandler("list_links", self.list_links_command))
+
         application.add_handler(MessageHandler(filters.PHOTO, self.handle_photo))
 
         # Callback handlers for buttons
@@ -391,6 +418,9 @@ class VinylBot:
         application.add_handler(
             CallbackQueryHandler(self.handle_recommend, pattern="^distance")
         )
+
+        # list handlers with /
+        application.post_init = self.post_init
 
         # Start polling
         logger.info("Bot is running... Press Ctrl+C to stop")
