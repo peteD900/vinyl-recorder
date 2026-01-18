@@ -34,6 +34,9 @@ class Config:
     VINYL_SHEET_TEST = os.getenv("VINYL_SHEET_TEST")
     VINYL_SHEET_PROD = os.getenv("VINYL_SHEET_PROD")
 
+    # WEB APP
+    WEB_APP_LINK = os.getenv("WEB_APP_LINK")
+
     @classmethod
     def vinyl_sheet_id(cls) -> str:
         if cls.APP_ENV == "prod":

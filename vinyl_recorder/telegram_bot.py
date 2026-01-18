@@ -394,7 +394,7 @@ class VinylBot:
         # Add handlers
         application.add_handler(CommandHandler("start", self.start_command))
         application.add_handler(CommandHandler("recommend", self.recommend_command))
-        application.add_handler(CommandHandler("list_links", self.list_links_command))
+        application.add_handler(CommandHandler("listLinks", self.list_links_command))
 
         application.add_handler(MessageHandler(filters.PHOTO, self.handle_photo))
 
