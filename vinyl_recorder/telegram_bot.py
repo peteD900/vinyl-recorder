@@ -60,14 +60,12 @@ class VinylBot:
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command."""
         await update.message.reply_text(
-            "🎵 *Vinyl Collection Bot*\n\n"
-            "Send a photo 📸 of an album cover to this bot. It will send get to an LLM for identification.\n"
-            "Follwing this the album can optionally be added to the overall collection in google sheets.\n"
-            "See links for sheet and website.\n\n"
+            "🎵 *Vinyl Collection Bot* 🎵\n\n"
+            "Send a photo of an album cover to this bot. It will send get to an LLM for identification."
+            "Follwing this the album can optionally be added to the overall collection in google sheets.\n\n"
             "Commands:\n"
             "/start - Show this message\n"
-            "/recommend - Recommend albums with 'distance' similarity metric.\n"
-            "/listLinks - Show google sheet link and app with all albums",
+            "/recommend - Recommend albums with 'distance' similarity metric.\n",
             parse_mode="Markdown",
         )
 
@@ -364,23 +362,12 @@ class VinylBot:
 
         return message
 
-    async def list_links_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ):
-        """List links command"""
-
-        await update.message.reply_text(
-            f"🔗 *Links:*\n\n🌐 [Web App]({Config.WEB_APP_LINK})\n",
-            parse_mode="Markdown",
-        )
-
     async def post_init(self, application):
         """Set bot commands after initialization."""
         await application.bot.set_my_commands(
             [
                 BotCommand("start", "Help / list commands"),
                 BotCommand("recommend", "Recommend albums to buy"),
-                BotCommand("listLinks", "List links for data"),
             ]
         )
 
@@ -394,7 +381,6 @@ class VinylBot:
         # Add handlers
         application.add_handler(CommandHandler("start", self.start_command))
         application.add_handler(CommandHandler("recommend", self.recommend_command))
-        application.add_handler(CommandHandler("listLinks", self.list_links_command))
 
         application.add_handler(MessageHandler(filters.PHOTO, self.handle_photo))
 
