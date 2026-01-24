@@ -1,0 +1,21 @@
+[
+  {
+    "discogs_title": "Best Of Cream",
+    "image_url": "https://example.com/cream.jpg",
+    "tracklist": [
+      "A1 Strange Brew",
+      "A2 White Room",
+      "A3 Badge"
+    ]
+  },
+  {
+    "discogs_title": "Fake data",
+    "image_url": "https://example.com/fake.jpg",
+    "tracklist": [
+      "A1 Shut",
+      "A2 The",
+      "A3 Door"
+    ]
+
+  }
+]

@@ -1,21 +1,9 @@
 from vinyl_recorder.llm_client import get_llm_client
 from vinyl_recorder.config import get_logger
 from vinyl_recorder.ghseets import GoogleSheeter
-
-from pydantic import BaseModel
-from typing import List
+from vinyl_recorder.data_models import RecommendedAlbums
 
 logger = get_logger()
-
-
-# ==== DATA MODELS ==== #
-class RecommendedAlbum(BaseModel):
-    artist: str
-    album: str
-
-
-class RecommendedAlbums(BaseModel):
-    albums: list[RecommendedAlbum]
 
 
 # ==== ALBUM RECOMMENDER ==== #

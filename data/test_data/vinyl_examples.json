@@ -1,0 +1,20 @@
+[
+  {
+    "image_name": "cream_best_of.jpg",
+    "process_date": "2026-01-24",
+    "source": "scanner",
+    "success": "true",
+    "artist": "Cream",
+    "album_title": "Best of Cream",
+    "album_year": 1969
+  },
+  {
+    "image_name": "beatles_abbey.jpg",
+    "process_date": "2026-01-24",
+    "source": "scanner",
+    "success": "true",
+    "artist": "The Beatles",
+    "album_title": "Abbey Road",
+    "album_year": 1969
+  }
+]

@@ -1,25 +1,19 @@
 import discogs_client
 import json
-from pydantic import BaseModel
 from typing import Optional
 from vinyl_recorder.config import Config, get_logger
-from vinyl_recorder.ghseets import GoogleSheeter
+from vinyl_recorder.vinyl_db import VinylDatabase
+from vinyl_recorder.data_models import DiscogsData
 
 logger = get_logger()
 TOKEN = Config.DISCOGS_API_KEY
 
 
 # ==== DATA MODELS ==== #
-class DiscogsData(BaseModel):
-    discogs_title: str
-    tracklist: list
-    image_url: str
-
-
 class DiscogEnricher:
-    def __init__(self, sheeter):
+    def __init__(self, db: VinylDatabase):
         self.d = discogs_client.Client("vinyl_recorder/1.0", user_token=TOKEN)
-        self.sheeter = sheeter
+        self.db = db
 
     def search_discogs(self, artist: str, album: str) -> Optional[DiscogsData]:
         """
@@ -37,7 +31,6 @@ class DiscogEnricher:
 
             page1 = results.page(1)
             item = page1[0]
-
             title = item.title
 
             # Get tracklist
@@ -68,61 +61,71 @@ class DiscogEnricher:
             logger.error(f"Error searching Discogs for {artist} - {album}: {e}")
             return None
 
-    def enrich_row(self, row_num: int, artist: str, album: str):
+    def enrich_vinyl(self, vinyl_id: int, artist: str, album: str) -> bool:
         """
-        Search Discogs for one row and update the sheet.
+        Search Discogs for one vinyl and update the database.
         """
-        logger.info(f"Enriching row {row_num}: {artist} - {album}")
-
+        logger.info(f"Enriching vinyl ID {vinyl_id}: {artist} - {album}")
         discogs_data = self.search_discogs(artist, album)
 
         if discogs_data:
-            # Convert tracklist to JSON string for storage
-            tracklist_json = json.dumps(discogs_data.tracklist)
-
-            # Update the row
-            self.sheeter.update_row_cells(
-                row_num,
-                {
-                    "discogs_title": discogs_data.discogs_title,
-                    "image_url": discogs_data.image_url,
-                    "tracklist": tracklist_json,
-                },
+            # Update the vinyl in database
+            success = self.db.update_vinyl_enrichment(
+                vinyl_id=vinyl_id,
+                discogs_title=discogs_data.discogs_title,
+                image_url=discogs_data.image_url,
+                tracklist=discogs_data.tracklist,
             )
 
-            logger.info(f"✓ Enriched: {artist} - {album}")
-            return True
+            if success:
+                logger.info(f"✓ Enriched: {artist} - {album}")
+                return True
+            else:
+                logger.error(f"✗ Failed to update database for: {artist} - {album}")
+                return False
         else:
             logger.warning(f"✗ Could not enrich: {artist} - {album}")
             return False
 
     def enrich_all_pending(self):
         """
-        Enrich all rows that are missing Discogs data.
+        Enrich all vinyls that are missing Discogs data.
         """
-
         logger.info("Starting enrichment process...")
 
-        for row_num, row_data in self.sheeter.iterate_rows_needing_enrichment():
-            artist = row_data.get("artist")
-            album = row_data.get("album_title")
+        # Get vinyls needing enrichment
+        pending_df = self.db.get_vinyls_needing_enrichment()
 
-            self.enrich_row(row_num, artist, album)
+        if pending_df.empty:
+            logger.info("No vinyls need enrichment")
+            return
+
+        logger.info(f"Found {len(pending_df)} vinyls to enrich")
+
+        # Iterate through each vinyl
+        for _, row in pending_df.iterrows():
+            vinyl_id = row["id"]
+            artist = row["artist"]
+            album = row["album_title"]
+
+            self.enrich_vinyl(vinyl_id, artist, album)
 
         logger.info("Enrichment complete")
 
 
 if __name__ == "__main__":
-    # Initialize with shared sheeter
-    sheeter = GoogleSheeter()
-    enricher = DiscogEnricher(sheeter)
+    # Initialize with database
+    db = VinylDatabase()
+    enricher = DiscogEnricher(db)
+    result = enricher.search_discogs(artist="foo fighters", album="color and the shape")
+    result.model_dump()
 
-    # Option 1: Enrich all pending rows
-    enricher.enrich_all_pending()
+    # Option 1: Enrich all pending vinyls
+    # enricher.enrich_all_pending()
 
-    # Option 2: Enrich specific row manually
-    # enricher.enrich_row(row_num=2, artist="Nirvana", album="Nevermind")
+    # Option 2: Enrich specific vinyl manually (need to know the ID)
+    # enricher.enrich_vinyl(vinyl_id=1, artist="Nirvana", album="Nevermind")
 
     # View results
-    df = enricher.sheeter.refresh_df()
-    print(df[["artist", "album_title", "discogs_title", "image_url"]])
+    # df = db.get_all_vinyls()
+    # print(df[["artist", "album_title", "discogs_title", "image_url"]])

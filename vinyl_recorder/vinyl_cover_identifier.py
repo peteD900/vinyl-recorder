@@ -1,23 +1,9 @@
 import base64
 from vinyl_recorder.llm_client import get_llm_client
 from vinyl_recorder.config import get_logger
-from pydantic import BaseModel
-from typing import Optional
+from vinyl_recorder.data_models import VinylData
 
 logger = get_logger()
-
-
-# ==== DATA MODELS ==== #
-class VinylData(BaseModel):
-    """
-    Output format for identification of album cover from llm.
-    """
-
-    success: bool
-    artist: Optional[str] = None
-    album_title: Optional[str] = None
-    album_year: Optional[str] = None
-    confidence: Optional[str] = None
 
 
 # ==== IDENTIFIER ==== #
@@ -94,7 +80,9 @@ class VinylIdentifier:
 
 
 if __name__ == "__main__":
-    image_path = "../data/google_photos/PXL_20251228_171823574.jpg"
+    from vinyl_recorder.config import Config
+
+    image_path = Config.LOCAL_WD / "data/test_images/PXL_20251228_171748947.jpg"
     identifier = VinylIdentifier()
     results = identifier.identify_image(image_path=image_path)
     print(results.model_dump_json(indent=2))

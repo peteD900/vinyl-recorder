@@ -3,8 +3,6 @@ Bulk identification and enrichment of local album images.
 Run with: python scripts/run_bulk_identification.py
 """
 
-from pyprojroot import here
-
 from vinyl_recorder.collection_tracker import CollectionTracker
 from vinyl_recorder.vinyl_cover_identifier import VinylIdentifier
 from vinyl_recorder.discogs import DiscogEnricher

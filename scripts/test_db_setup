@@ -1,0 +1,25 @@
+from vinyl_recorder.config import Config, get_logger
+from vinyl_recorder.vinyl_db import VinylDatabase, Vinyl
+import json
+
+# Setup
+logger = get_logger()
+
+db_path = Config.db_path()
+test_data_path = Config.LOCAL_WD / "data" / "test_data" / "vinyl_examples.json"
+
+# Initialize database
+db = VinylDatabase(db_path=db_path, logger=logger)
+
+# Load and add test data
+with open(test_data_path) as f:
+    test_vinyls = json.load(f)
+
+for vinyl_data in test_vinyls:
+    vinyl = Vinyl(**vinyl_data)
+    vinyl_id = db.add_vinyl(vinyl)
+    logger.info(f"Added test vinyl with ID: {vinyl_id}")
+
+# Retrieve and display
+df = db.get_all_vinyls()
+print(df[["artist", "album_title", "album_year"]])

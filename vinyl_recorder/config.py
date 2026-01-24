@@ -1,22 +1,24 @@
 import os
 from dotenv import load_dotenv
 from pyprojroot import here
+from pathlib import Path
 import logging
 
 # Load environment variables
 load_dotenv()
 
-# For relative paths
-LOCAL_WD = here()
-
 
 class Config:
+    # For relative paths
+    LOCAL_WD = here()
+    DATA_DIR = LOCAL_WD / "data"
+
     # ENV
     APP_ENV = os.getenv("APP_ENV")
 
     # LOCAL IMAGE DIRS
-    IMAGES_DIR_PROD = LOCAL_WD / "data/all_images"
-    IMAGES_DIR_TEST = LOCAL_WD / "data/test_images"
+    IMAGES_DIR_PROD = DATA_DIR / "all_images"
+    IMAGES_DIR_TEST = DATA_DIR / "test_images"
 
     # LLM OPENAI
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -34,11 +36,21 @@ class Config:
     VINYL_SHEET_TEST = os.getenv("VINYL_SHEET_TEST")
     VINYL_SHEET_PROD = os.getenv("VINYL_SHEET_PROD")
 
+    # DB PATHS
+    DB_PATH_PROD = DATA_DIR / "vinyls.db"
+    DB_PATH_TEST = DATA_DIR / "vinyls_test.db"
+
+    @classmethod
+    def db_path(cls) -> Path:
+        if cls.APP_ENV == "prod":
+            return cls.DB_PATH_PROD
+        if cls.APP_ENV == "test":
+            return cls.DB_PATH_TEST
+
     @classmethod
     def vinyl_sheet_id(cls) -> str:
         if cls.APP_ENV == "prod":
             return cls.VINYL_SHEET_PROD
-
         if cls.APP_ENV == "test":
             return cls.VINYL_SHEET_TEST
 
@@ -46,7 +58,6 @@ class Config:
     def bot_token(cls) -> str:
         if cls.APP_ENV == "prod":
             return cls.BOT_TOKEN
-
         if cls.APP_ENV == "test":
             return cls.BOT_TOKEN_TEST
 
@@ -54,7 +65,6 @@ class Config:
     def local_image_dir(cls) -> str:
         if cls.APP_ENV == "prod":
             return cls.IMAGES_DIR_PROD
-
         if cls.APP_ENV == "test":
             return cls.IMAGES_DIR_TEST
 
@@ -75,7 +85,3 @@ def get_logger(name: str = __name__) -> logging.Logger:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
     return logging.getLogger(name)
-
-
-if __name__ == "__main__":
-    print(Config.APP_ENV)
