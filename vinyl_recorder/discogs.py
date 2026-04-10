@@ -62,30 +62,27 @@ class DiscogEnricher:
             return None
 
     def enrich_vinyl(self, vinyl_id: int, artist: str, album: str) -> bool:
-        """
-        Search Discogs for one vinyl and update the database.
-        """
+        """Search Discogs for one vinyl and update the database"""
         logger.info(f"Enriching vinyl ID {vinyl_id}: {artist} - {album}")
+
         discogs_data = self.search_discogs(artist, album)
 
         if discogs_data:
-            # Update the vinyl in database
-            success = self.db.update_vinyl_enrichment(
+            # Update with data we found
+            self.db.update_vinyl_enrichment(
                 vinyl_id=vinyl_id,
                 discogs_title=discogs_data.discogs_title,
                 image_url=discogs_data.image_url,
                 tracklist=discogs_data.tracklist,
             )
-
-            if success:
-                logger.info(f"✓ Enriched: {artist} - {album}")
-                return True
-            else:
-                logger.error(f"✗ Failed to update database for: {artist} - {album}")
-                return False
+            logger.info(f"✓ Enriched: {artist} - {album}")
         else:
             logger.warning(f"✗ Could not enrich: {artist} - {album}")
-            return False
+
+        # Always mark as attempted (success or failure)
+        self.db.mark_discogs_attempted(vinyl_id)
+
+        return discogs_data is not None
 
     def enrich_all_pending(self):
         """
@@ -117,11 +114,12 @@ if __name__ == "__main__":
     # Initialize with database
     db = VinylDatabase()
     enricher = DiscogEnricher(db)
-    result = enricher.search_discogs(artist="foo fighters", album="color and the shape")
-    result.model_dump()
+    # result = enricher.search_discogs(artist="foo fighters", album="color and the shape")
+    # result.model_dump()
+    enricher.db.get_all_vinyls()
 
     # Option 1: Enrich all pending vinyls
-    # enricher.enrich_all_pending()
+    enricher.enrich_all_pending()
 
     # Option 2: Enrich specific vinyl manually (need to know the ID)
     # enricher.enrich_vinyl(vinyl_id=1, artist="Nirvana", album="Nevermind")

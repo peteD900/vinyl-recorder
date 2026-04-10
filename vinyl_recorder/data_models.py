@@ -3,7 +3,7 @@ from typing import Optional
 
 
 # ---- VINYL IDENTIFICATION ---- #
-class VinylData(BaseModel):
+class VinylIdentity(BaseModel):
     """
     Output format for identification of album cover from llm.
     """
@@ -12,6 +12,17 @@ class VinylData(BaseModel):
     artist: str | None = None
     album_title: str | None = None
     album_year: str | None = None
+
+
+# ---- TRACKER ---- #
+class TrackerData(VinylIdentity):
+    """
+    Format for one row of tracking info
+    """
+
+    image_name: str
+    source: str
+    process_date: str
 
 
 # ---- DISCOGS ENRICHMENT ---- #

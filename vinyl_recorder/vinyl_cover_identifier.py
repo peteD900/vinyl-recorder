@@ -1,7 +1,7 @@
 import base64
 from vinyl_recorder.llm_client import get_llm_client
 from vinyl_recorder.config import get_logger
-from vinyl_recorder.data_models import VinylData
+from vinyl_recorder.data_models import VinylIdentity
 
 logger = get_logger()
 
@@ -22,7 +22,7 @@ class VinylIdentifier:
 
         return image_data
 
-    def identify(self, image_base64: str) -> VinylData:
+    def identify(self, image_base64: str) -> VinylIdentity:
         """
         Pass base64 image to llm for identification.
 
@@ -62,11 +62,13 @@ class VinylIdentifier:
             },
         ]
 
-        result = self.llm.parse_completion(messages=messages, response_format=VinylData)
+        result = self.llm.parse_completion(
+            messages=messages, response_format=VinylIdentity
+        )
 
         return result
 
-    def identify_image(self, image_path: str) -> VinylData:
+    def identify_image(self, image_path: str) -> VinylIdentity:
         """
         Load photo as base64 and identify album cover with llm call.
         """
