@@ -19,7 +19,7 @@ from vinyl_recorder.config import Config
 from vinyl_recorder.vinyl_cover_identifier import VinylIdentifier
 from vinyl_recorder.discogs import DiscogEnricher
 from vinyl_recorder.collection_tracker import CollectionTracker
-from vinyl_recorder.gsheets import GoogleSheeter
+from vinyl_recorder.database import AlbumRepository
 from vinyl_recorder.album_recommender import AlbumRecommender
 
 import logging
@@ -41,13 +41,13 @@ logger = logging.getLogger(__name__)
 class VinylBot:
     def __init__(
         self,
-        sheeter: GoogleSheeter,
+        repo: AlbumRepository,
         identifier: VinylIdentifier,
         enricher: DiscogEnricher,
         tracker: CollectionTracker,
         recommender: AlbumRecommender,
     ):
-        self.sheeter = sheeter
+        self.repo = repo
         self.identifier = identifier
         self.enricher = enricher
         self.tracker = tracker
@@ -59,8 +59,8 @@ class VinylBot:
         """Handle /start command."""
         await update.message.reply_text(
             "🎵 *Vinyl Collection Bot* 🎵\n\n"
-            "Send a photo of an album cover to this bot. It will send get to an LLM for identification."
-            "Follwing this the album can optionally be added to the overall collection in google sheets.\n\n"
+            "Send a photo of an album cover to identify it with an LLM.\n"
+            "The album can then be added to your collection.\n\n"
             "Commands:\n"
             "/start - Show this message\n"
             "/recommend - Recommend albums with 'distance' similarity metric.\n",
@@ -96,7 +96,7 @@ class VinylBot:
     async def handle_recommend(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
-        """User clicked Yes - run identification and enrichment."""
+        """Handle recommendation distance selection."""
         query = update.callback_query
         await query.answer()
         user_id = update.effective_user.id
@@ -192,11 +192,11 @@ class VinylBot:
             # Update message
             await query.edit_message_text(
                 f"✓ Identified as {vinyl_data.artist} - {vinyl_data.album_title}\n"
-                f"🔍 Looking up details on Discogs..."
+                f"🔍 Looking up details..."
             )
 
             # Step 2: Check for duplicate
-            if self.sheeter.is_duplicate(vinyl_data.artist, vinyl_data.album_title):
+            if self.repo.is_duplicate(vinyl_data.artist, vinyl_data.album_title):
                 await query.edit_message_text(
                     f"⚠️ *You already have this album!*\n\n"
                     f"Artist: {vinyl_data.artist}\n"
@@ -208,7 +208,7 @@ class VinylBot:
 
             # Step 3: Enrich with Discogs
             logger.info(
-                f"Enriching with Discogs: {vinyl_data.artist} - {vinyl_data.album_title}"
+                f"Enriching: {vinyl_data.artist} - {vinyl_data.album_title}"
             )
             discogs_data = self.enricher.search_discogs(
                 artist=vinyl_data.artist, album=vinyl_data.album_title
@@ -274,10 +274,10 @@ class VinylBot:
         discogs_data = pending.get("discogs_data")
 
         # Show processing message
-        await query.edit_message_text("🔍 Adding data to Google sheets... please wait")
+        await query.edit_message_text("🔍 Adding to collection... please wait")
 
         try:
-            # Add to tracker (this adds identification data)
+            # Add to tracker (this adds identification data to DB)
             logger.info(
                 f"Adding to collection: {vinyl_data.artist} - {vinyl_data.album_title}"
             )
@@ -287,19 +287,12 @@ class VinylBot:
 
             # If we have Discogs data, enrich immediately
             if discogs_data:
-                # Find the row we just added
-                image_name = pending["image_name"]
-                row_num = self.sheeter.find_row_by_image_name(image_name)
-
-                if row_num:
-                    self.sheeter.update_row_cells(
-                        row_num,
-                        {
-                            "discogs_title": discogs_data.discogs_title,
-                            "tracklist": json.dumps(discogs_data.tracklist),
-                            "image_url": discogs_data.image_url,
-                        },
-                    )
+                album_row = self.repo.find_by_image_name(pending["image_name"])
+                if album_row:
+                    self.repo.update_album(album_row["id"], {
+                        "cover_image_url": discogs_data.image_url,
+                        "tracklist": json.dumps(discogs_data.tracklist),
+                    })
 
             # Success message
             success_msg = (
@@ -351,10 +344,10 @@ class VinylBot:
             for track in discogs_data.tracklist:
                 tracks += f"{track}\n"
 
-            message += "\n📀 *Discogs Info:*\n"
+            message += "\n📀 *Enrichment Info:*\n"
             message += tracks
         else:
-            message += "\n⚠️ Could not find on Discogs\n"
+            message += "\n⚠️ Could not find enrichment data\n"
 
         message += "\nAdd this to your collection?"
 
@@ -411,15 +404,15 @@ class VinylBot:
 
 if __name__ == "__main__":
     # Initialize components
-    sheeter = GoogleSheeter()
+    repo = AlbumRepository()
     identifier = VinylIdentifier()
-    enricher = DiscogEnricher(sheeter=sheeter)
-    tracker = CollectionTracker(sheeter=sheeter, source="telegram")
-    recommender = AlbumRecommender(sheeter=sheeter)
+    enricher = DiscogEnricher(repo=repo)
+    tracker = CollectionTracker(repo=repo, source="telegram")
+    recommender = AlbumRecommender(repo=repo)
 
     # Start bot
     bot = VinylBot(
-        sheeter=sheeter,
+        repo=repo,
         identifier=identifier,
         enricher=enricher,
         tracker=tracker,

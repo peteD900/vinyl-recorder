@@ -9,7 +9,7 @@ from vinyl_recorder.telegram_bot import VinylBot
 def _make_bot():
     """Create a VinylBot with mocked dependencies."""
     return VinylBot(
-        sheeter=MagicMock(),
+        repo=MagicMock(),
         identifier=MagicMock(),
         enricher=MagicMock(),
         tracker=MagicMock(),
@@ -58,5 +58,5 @@ class TestFormatResultsMessage:
         assert "Unknown Artist" in msg
         assert "Rare Album" in msg
         assert "Unknown" in msg  # year fallback
-        assert "Could not find on Discogs" in msg
+        assert "Could not find enrichment data" in msg
         assert "Add this to your collection?" in msg

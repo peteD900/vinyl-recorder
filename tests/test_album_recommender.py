@@ -2,20 +2,24 @@
 
 import pytest
 from unittest.mock import MagicMock, patch
-import pandas as pd
 
-from vinyl_recorder.album_recommender import AlbumRecommender, RecommendedAlbum, RecommendedAlbums
+from vinyl_recorder.album_recommender import (
+    AlbumRecommender,
+    RecommendedAlbum,
+    RecommendedAlbums,
+)
 
 
 class TestBuildAlbumContext:
     @patch("vinyl_recorder.album_recommender.get_llm_client")
     def test_context_contains_albums(self, mock_llm):
-        sheeter = MagicMock()
-        sheeter.df_sheet = pd.DataFrame({
-            "discogs_title": ["Nirvana - Nevermind", "Radiohead - OK Computer"]
-        })
+        repo = MagicMock()
+        repo.get_album_titles.return_value = [
+            "Nirvana - Nevermind",
+            "Radiohead - OK Computer",
+        ]
 
-        recommender = AlbumRecommender(sheeter=sheeter)
+        recommender = AlbumRecommender(repo=repo)
         context = recommender.build_album_context(n_suggestions=3, taste_distance=5)
 
         assert "Nirvana - Nevermind" in context
@@ -25,10 +29,10 @@ class TestBuildAlbumContext:
 
     @patch("vinyl_recorder.album_recommender.get_llm_client")
     def test_context_distance_setting(self, mock_llm):
-        sheeter = MagicMock()
-        sheeter.df_sheet = pd.DataFrame({"discogs_title": ["Test Album"]})
+        repo = MagicMock()
+        repo.get_album_titles.return_value = ["Test Album"]
 
-        recommender = AlbumRecommender(sheeter=sheeter)
+        recommender = AlbumRecommender(repo=repo)
         context = recommender.build_album_context(n_suggestions=2, taste_distance=8)
 
         assert "Current distance setting: 8" in context
@@ -37,8 +41,8 @@ class TestBuildAlbumContext:
 class TestRecommendAlbumsValidation:
     @patch("vinyl_recorder.album_recommender.get_llm_client")
     def test_invalid_taste_distance(self, mock_llm):
-        sheeter = MagicMock()
-        recommender = AlbumRecommender(sheeter=sheeter)
+        repo = MagicMock()
+        recommender = AlbumRecommender(repo=repo)
 
         with pytest.raises(ValueError, match="taste_distance"):
             recommender.recommend_albums(taste_distance=0)
@@ -48,8 +52,8 @@ class TestRecommendAlbumsValidation:
 
     @patch("vinyl_recorder.album_recommender.get_llm_client")
     def test_invalid_n_suggestions(self, mock_llm):
-        sheeter = MagicMock()
-        recommender = AlbumRecommender(sheeter=sheeter)
+        repo = MagicMock()
+        recommender = AlbumRecommender(repo=repo)
 
         with pytest.raises(ValueError, match="n_suggestions"):
             recommender.recommend_albums(n_suggestions=0)
@@ -61,8 +65,8 @@ class TestRecommendAlbumsValidation:
 class TestParseAlbums:
     @patch("vinyl_recorder.album_recommender.get_llm_client")
     def test_parse_albums(self, mock_llm):
-        sheeter = MagicMock()
-        recommender = AlbumRecommender(sheeter=sheeter)
+        repo = MagicMock()
+        recommender = AlbumRecommender(repo=repo)
 
         results = RecommendedAlbums(albums=[
             RecommendedAlbum(artist="Miles Davis", album="Kind of Blue"),

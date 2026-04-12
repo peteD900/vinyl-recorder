@@ -1,11 +1,9 @@
-import pandas as pd
 from pathlib import Path
 from datetime import datetime
 
 from vinyl_recorder.config import get_logger
-from vinyl_recorder.vinyl_cover_identifier import VinylIdentifier
 from vinyl_recorder.vinyl_cover_identifier import VinylData
-from vinyl_recorder.gsheets import GoogleSheeter
+from vinyl_recorder.database import AlbumRepository
 
 logger = get_logger()
 
@@ -25,7 +23,7 @@ class TrackerData(VinylData):
 class CollectionTracker:
     def __init__(
         self,
-        sheeter,
+        repo: AlbumRepository,
         images_path: str = None,
         image_type: str = "jpg",
         source: str = "local",
@@ -33,102 +31,50 @@ class CollectionTracker:
         self.images_path = Path(images_path) if images_path else None
         self.image_type = image_type
         self.source = source
-        self.sheeter = sheeter
+        self.repo = repo
 
     def get_image_list(self) -> list:
         """
         Get list of full path to all images in the supplied dir images_path.
         """
-        images = self.images_path.glob(pattern=f"*.{self.image_type}")
-        images = [image for image in images]
+        images = list(self.images_path.glob(pattern=f"*.{self.image_type}"))
         return images
-
-    def load_tracker_sheet(self) -> pd.DataFrame:
-        df_tracker = self.sheeter.load_sheet_as_df()
-        return df_tracker
 
     def get_pending_images(self) -> list:
         """
-        Compare tracker sheet with full list of images and
+        Compare database with full list of images and
         return only those that have not been processed.
         """
-        df_processed = self.load_tracker_sheet()
         all_images = self.get_image_list()
-        all_image_names = [str(image.name) for image in all_images]
-
-        if df_processed.empty:
-            pending = all_images
-        else:
-            images_got = df_processed["image_name"].unique()
-            pending = [
-                Path(self.images_path, p)
-                for p in all_image_names
-                if p not in images_got
-            ]
-
+        pending = [
+            img for img in all_images
+            if not self.repo.find_by_image_name(img.name)
+        ]
         return pending
 
-    def _build_row(self, image_name: str, source: str, result: VinylData) -> list:
-        """Build a sheet row from identification results."""
-        return [
-            image_name,
-            datetime.now().isoformat(timespec="seconds"),
-            source,
-            result.success,
-            result.artist,
-            result.album_title,
-            result.album_year,
-            result.confidence,
-            "",  # discogs_title - filled during enrichment
-            "",  # image_url - filled during enrichment
-            "",  # tracklist - filled during enrichment
-        ]
+    def _build_album_data(self, image_name: str, source: str, result: VinylData) -> dict:
+        """Build an album data dict from identification results."""
+        return {
+            "image_name": image_name,
+            "process_date": datetime.now().isoformat(timespec="seconds"),
+            "source": source,
+            "success": result.success,
+            "artist": result.artist,
+            "album_title": result.album_title,
+            "album_year": result.album_year,
+            "confidence": result.confidence,
+        }
 
     def add_result_local(self, image_path, result: VinylData):
-        """Add local identification result to sheet, skipping duplicates."""
-        # There can be duplicates if albums were added from telegram
-        # before local because the image name from telegram is
-        # not different and not in the list of images here.
-        if self.sheeter.is_duplicate(result.artist, result.album_title):
+        """Add local identification result to database, skipping duplicates."""
+        if self.repo.is_duplicate(result.artist, result.album_title):
             logger.warning(f"Already got data for {result.artist} - {result.album_title}")
             return
 
-        new_row = self._build_row(image_path.name, self.source, result)
-        self.sheeter.append_row(row_data=new_row)
+        data = self._build_album_data(image_path.name, self.source, result)
+        self.repo.add_album(data)
 
     def add_result_telegram(self, image_name: str, result: VinylData):
-        """Add Telegram identification result to sheet."""
-        new_row = self._build_row(image_name, "telegram", result)
-        self.sheeter.append_row(row_data=new_row)
-
-
-if __name__ == "__main__":
-    from pyprojroot import here
-
-    sheeter = GoogleSheeter()
-    # sheeter.print_headers()
-
-    # set local working dir
-    LOCAL_WD = here()
-
-    IMAGES_DIR = LOCAL_WD / "data/test_images"
-
-    tracker = CollectionTracker(sheeter=sheeter, images_path=IMAGES_DIR, source="local")
-    identifier = VinylIdentifier()
-
-    # tracker.overwrite_tracker_sheet()
-
-    pending_list = tracker.get_pending_images()
-
-    # for dev mode
-    # n = 2
-    # pending_list = pending_list[0:n]
-    # print(pending_list)
-
-    if len(pending_list) == 0:
-        logger.info("No images left to identify")
-
-    for image_path in pending_list:
-        result = identifier.identify_image(image_path)
-        print(result.model_dump_json(indent=2))
-        tracker.add_result_local(image_path, result)
+        """Add Telegram identification result to database."""
+        data = self._build_album_data(image_name, "telegram", result)
+        self.repo.add_album(data)

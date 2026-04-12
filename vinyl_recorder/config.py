@@ -29,24 +29,10 @@ class Config:
     # DISCOGS
     DISCOGS_API_KEY = os.getenv("DISCOGS_API_KEY")
 
-    # GOOGLE SHEETS
+    # GOOGLE SHEETS (legacy — only used by one-shot migration script)
     GOOGLE_SERVICE_ACCOUNT = os.getenv("GOOGLE_SERVICE_ACCOUNT")
     VINYL_SHEET_TEST = os.getenv("VINYL_SHEET_TEST")
     VINYL_SHEET_PROD = os.getenv("VINYL_SHEET_PROD")
-
-    @classmethod
-    def validate(cls):
-        """Check that required environment variables are set."""
-        required = {
-            "APP_ENV": cls.APP_ENV,
-            "ANTHROPIC_API_KEY": cls.ANTHROPIC_API_KEY,
-            "GOOGLE_SERVICE_ACCOUNT": cls.GOOGLE_SERVICE_ACCOUNT,
-        }
-        missing = [name for name, value in required.items() if not value]
-        if missing:
-            raise EnvironmentError(
-                f"Missing required environment variables: {', '.join(missing)}"
-            )
 
     @classmethod
     def vinyl_sheet_id(cls) -> str:
@@ -55,6 +41,19 @@ class Config:
         if cls.APP_ENV == "test":
             return cls.VINYL_SHEET_TEST
         raise ValueError(f"APP_ENV must be 'prod' or 'test', got: {cls.APP_ENV!r}")
+
+    @classmethod
+    def validate(cls):
+        """Check that required environment variables are set."""
+        required = {
+            "APP_ENV": cls.APP_ENV,
+            "ANTHROPIC_API_KEY": cls.ANTHROPIC_API_KEY,
+        }
+        missing = [name for name, value in required.items() if not value]
+        if missing:
+            raise EnvironmentError(
+                f"Missing required environment variables: {', '.join(missing)}"
+            )
 
     @classmethod
     def bot_token(cls) -> str:

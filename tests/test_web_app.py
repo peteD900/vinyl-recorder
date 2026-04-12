@@ -1,12 +1,6 @@
 """Tests for web_app helper functions."""
 
-from unittest.mock import MagicMock, patch
-import sys
-
-# Mock GoogleSheeter before web_app tries to instantiate it at module level
-with patch("vinyl_recorder.gsheets.GoogleSheeter") as mock_sheeter:
-    mock_sheeter.return_value = MagicMock()
-    from vinyl_recorder.web_app import parse_tracklist
+from vinyl_recorder.web_app import parse_tracklist
 
 
 class TestParseTracklist:
