@@ -1,4 +1,3 @@
-import os
 import pandas as pd
 import base64
 import json
@@ -90,15 +89,18 @@ class GoogleSheeter:
 
     def update_row_cells(self, row_num: int, updates: dict):
         """
-        Update multiple cells in a row.
+        Update multiple cells in a row using a single batch request.
         updates is a dict of {column_name: value}
         """
-        # Get column positions from headers
         headers = self.sheet.row_values(1)
+        cells = []
 
         for col_name, value in updates.items():
             col_num = headers.index(col_name) + 1  # 1-indexed
-            self.update_cell(row_num, col_num, value)
+            cells.append(gspread.Cell(row_num, col_num, value))
+
+        if cells:
+            self.sheet.update_cells(cells)
 
         logger.info(f"Updated row {row_num}")
 
@@ -135,15 +137,14 @@ class GoogleSheeter:
         return headers
 
     def print_headers(self):
-        """Print headers in useful formats for building row data."""
+        """Log headers in useful formats for building row data."""
         headers = self.get_headers()
 
-        print("Column headers (in order):")
+        logger.info("Column headers (in order):")
         for i, header in enumerate(headers, 1):
-            print(f"  {i}. {header}")
+            logger.info(f"  {i}. {header}")
 
-        print("\nAs Python list:")
-        print(f"  {headers}")
+        logger.info(f"As Python list: {headers}")
 
 
 if __name__ == "__main__":

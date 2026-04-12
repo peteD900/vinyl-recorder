@@ -35,28 +35,42 @@ class Config:
     VINYL_SHEET_PROD = os.getenv("VINYL_SHEET_PROD")
 
     @classmethod
+    def validate(cls):
+        """Check that required environment variables are set."""
+        required = {
+            "APP_ENV": cls.APP_ENV,
+            "OPENAI_API_KEY": cls.OPENAI_API_KEY,
+            "GOOGLE_SERVICE_ACCOUNT": cls.GOOGLE_SERVICE_ACCOUNT,
+        }
+        missing = [name for name, value in required.items() if not value]
+        if missing:
+            raise EnvironmentError(
+                f"Missing required environment variables: {', '.join(missing)}"
+            )
+
+    @classmethod
     def vinyl_sheet_id(cls) -> str:
         if cls.APP_ENV == "prod":
             return cls.VINYL_SHEET_PROD
-
         if cls.APP_ENV == "test":
             return cls.VINYL_SHEET_TEST
+        raise ValueError(f"APP_ENV must be 'prod' or 'test', got: {cls.APP_ENV!r}")
 
     @classmethod
     def bot_token(cls) -> str:
         if cls.APP_ENV == "prod":
             return cls.BOT_TOKEN
-
         if cls.APP_ENV == "test":
             return cls.BOT_TOKEN_TEST
+        raise ValueError(f"APP_ENV must be 'prod' or 'test', got: {cls.APP_ENV!r}")
 
     @classmethod
     def local_image_dir(cls) -> str:
         if cls.APP_ENV == "prod":
             return cls.IMAGES_DIR_PROD
-
         if cls.APP_ENV == "test":
             return cls.IMAGES_DIR_TEST
+        raise ValueError(f"APP_ENV must be 'prod' or 'test', got: {cls.APP_ENV!r}")
 
 
 def get_logger(name: str = __name__) -> logging.Logger:

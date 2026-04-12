@@ -8,7 +8,7 @@ from pyprojroot import here
 from vinyl_recorder.collection_tracker import CollectionTracker
 from vinyl_recorder.vinyl_cover_identifier import VinylIdentifier
 from vinyl_recorder.discogs import DiscogEnricher
-from vinyl_recorder.ghseets import GoogleSheeter
+from vinyl_recorder.gsheets import GoogleSheeter
 from vinyl_recorder.config import get_logger, Config
 
 logger = get_logger()

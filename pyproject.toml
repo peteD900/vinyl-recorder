@@ -20,5 +20,10 @@ dependencies = [
     "uvicorn>=0.40.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
 [tool.setuptools]
 packages = ["vinyl_recorder"]

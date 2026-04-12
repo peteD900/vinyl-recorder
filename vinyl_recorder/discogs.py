@@ -3,7 +3,7 @@ import json
 from pydantic import BaseModel
 from typing import Optional
 from vinyl_recorder.config import Config, get_logger
-from vinyl_recorder.ghseets import GoogleSheeter
+from vinyl_recorder.gsheets import GoogleSheeter
 
 logger = get_logger()
 TOKEN = Config.DISCOGS_API_KEY

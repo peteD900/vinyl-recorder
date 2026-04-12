@@ -1,9 +1,8 @@
 from vinyl_recorder.llm_client import get_llm_client
 from vinyl_recorder.config import get_logger
-from vinyl_recorder.ghseets import GoogleSheeter
+from vinyl_recorder.gsheets import GoogleSheeter
 
 from pydantic import BaseModel
-from typing import List
 
 logger = get_logger()
 

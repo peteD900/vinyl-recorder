@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 import json
-from vinyl_recorder.ghseets import GoogleSheeter
+from vinyl_recorder.gsheets import GoogleSheeter
 from vinyl_recorder.config import get_logger
 
 logger = get_logger()
@@ -19,6 +19,17 @@ templates = Jinja2Templates(directory="vinyl_recorder/templates")
 
 # Initialize sheeter
 sheeter = GoogleSheeter()
+
+
+def parse_tracklist(album: dict) -> list:
+    """Parse tracklist JSON string into a list, returning [] on failure."""
+    raw = album.get("tracklist")
+    if not raw:
+        return []
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        return []
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -33,15 +44,8 @@ async def home(request: Request):
     # Convert to list of dicts for template
     albums = df.to_dict("records")
 
-    # Parse tracklist JSON strings
     for album in albums:
-        if album.get("tracklist"):
-            try:
-                album["tracklist"] = json.loads(album["tracklist"])
-            except:
-                album["tracklist"] = []
-        else:
-            album["tracklist"] = []
+        album["tracklist"] = parse_tracklist(album)
 
     return templates.TemplateResponse(
         "index.html", {"request": request, "albums": albums, "total_count": len(albums)}
@@ -55,11 +59,7 @@ async def get_albums():
     albums = df.to_dict("records")
 
     for album in albums:
-        if album.get("tracklist"):
-            try:
-                album["tracklist"] = json.loads(album["tracklist"])
-            except:
-                album["tracklist"] = []
+        album["tracklist"] = parse_tracklist(album)
 
     return {"albums": albums, "count": len(albums)}
 

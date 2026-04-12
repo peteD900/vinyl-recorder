@@ -5,7 +5,7 @@ from datetime import datetime
 from vinyl_recorder.config import get_logger
 from vinyl_recorder.vinyl_cover_identifier import VinylIdentifier
 from vinyl_recorder.vinyl_cover_identifier import VinylData
-from vinyl_recorder.ghseets import GoogleSheeter
+from vinyl_recorder.gsheets import GoogleSheeter
 
 logger = get_logger()
 
@@ -68,72 +68,37 @@ class CollectionTracker:
 
         return pending
 
-    def add_result_local(self, image_path, result: VinylData):
-        """
-        Add results to google sheet. Column headers (in order):
-            1. image_name
-            2. process_date
-            3. source
-            4. success
-            5. artist
-            6. album_title
-            7. album_year
-            8. confidence
-            9. discogs_title
-            10. image_url
-            11. tracklist
-        """
-
-        image_name = image_path.name
-        process_date = datetime.now().isoformat(timespec="seconds")
-        source = self.source
-        success = result.success
-        artist = result.artist
-        album_title = result.album_title
-        album_year = result.album_year
-        confidence = result.confidence
-
-        new_row = [
+    def _build_row(self, image_name: str, source: str, result: VinylData) -> list:
+        """Build a sheet row from identification results."""
+        return [
             image_name,
-            process_date,
+            datetime.now().isoformat(timespec="seconds"),
             source,
-            success,
-            artist,
-            album_title,
-            album_year,
-            confidence,
-            "",  # discogs_title - filled during enrichment
-            "",  # image_url - filled during enrichment
-            "",  # tracklist - filled during enrichment
-        ]
-
-        # There can be duplicated if albums were added from telegram
-        # before local because the image name from telegram is
-        # not different and not in the list of images here.
-        if self.sheeter.is_duplicate(artist, album_title):
-            logger.warning(f"Already got data for {artist} - {album_title}")
-            return
-
-        self.sheeter.append_row(row_data=new_row)
-
-    def add_result_telegram(self, image_name: str, result: VinylData):
-        """Add result from Telegram (no full_path)."""
-        date_now = datetime.now().isoformat(timespec="seconds")
-
-        new_row = [
-            image_name,
-            date_now,
-            "telegram",  # source
             result.success,
             result.artist,
             result.album_title,
             result.album_year,
             result.confidence,
-            "",  # discogs_title
-            "",  # image_url
-            "",  # tracklist
+            "",  # discogs_title - filled during enrichment
+            "",  # image_url - filled during enrichment
+            "",  # tracklist - filled during enrichment
         ]
 
+    def add_result_local(self, image_path, result: VinylData):
+        """Add local identification result to sheet, skipping duplicates."""
+        # There can be duplicates if albums were added from telegram
+        # before local because the image name from telegram is
+        # not different and not in the list of images here.
+        if self.sheeter.is_duplicate(result.artist, result.album_title):
+            logger.warning(f"Already got data for {result.artist} - {result.album_title}")
+            return
+
+        new_row = self._build_row(image_path.name, self.source, result)
+        self.sheeter.append_row(row_data=new_row)
+
+    def add_result_telegram(self, image_name: str, result: VinylData):
+        """Add Telegram identification result to sheet."""
+        new_row = self._build_row(image_name, "telegram", result)
         self.sheeter.append_row(row_data=new_row)
 
 

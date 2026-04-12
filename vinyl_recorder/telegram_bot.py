@@ -5,8 +5,6 @@ Telegram bot for identifying and adding vinyl albums to collection.
 import base64
 from datetime import datetime
 import json
-import asyncio
-from io import BytesIO
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
 from telegram.ext import (
@@ -21,7 +19,7 @@ from vinyl_recorder.config import Config
 from vinyl_recorder.vinyl_cover_identifier import VinylIdentifier
 from vinyl_recorder.discogs import DiscogEnricher
 from vinyl_recorder.collection_tracker import CollectionTracker
-from vinyl_recorder.ghseets import GoogleSheeter
+from vinyl_recorder.gsheets import GoogleSheeter
 from vinyl_recorder.album_recommender import AlbumRecommender
 
 import logging
@@ -114,7 +112,7 @@ class VinylBot:
             taste_distance=distance, n_suggestions=5
         )
 
-        albums = recommender.parse_albums(results)
+        albums = self.recommender.parse_albums(results)
 
         message = "Recommended Albums:\n\n"
         message += albums
