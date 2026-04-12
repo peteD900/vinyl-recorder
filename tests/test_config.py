@@ -72,33 +72,33 @@ class TestConfigEnvSwitching:
 
 class TestConfigValidation:
     def test_validate_passes_with_required_vars(self):
-        originals = (Config.APP_ENV, Config.OPENAI_API_KEY, Config.GOOGLE_SERVICE_ACCOUNT)
+        originals = (Config.APP_ENV, Config.ANTHROPIC_API_KEY, Config.GOOGLE_SERVICE_ACCOUNT)
         try:
             Config.APP_ENV = "test"
-            Config.OPENAI_API_KEY = "key"
+            Config.ANTHROPIC_API_KEY = "key"
             Config.GOOGLE_SERVICE_ACCOUNT = "account"
             Config.validate()  # Should not raise
         finally:
-            Config.APP_ENV, Config.OPENAI_API_KEY, Config.GOOGLE_SERVICE_ACCOUNT = originals
+            Config.APP_ENV, Config.ANTHROPIC_API_KEY, Config.GOOGLE_SERVICE_ACCOUNT = originals
 
     def test_validate_fails_missing_app_env(self):
-        originals = (Config.APP_ENV, Config.OPENAI_API_KEY, Config.GOOGLE_SERVICE_ACCOUNT)
+        originals = (Config.APP_ENV, Config.ANTHROPIC_API_KEY, Config.GOOGLE_SERVICE_ACCOUNT)
         try:
             Config.APP_ENV = None
-            Config.OPENAI_API_KEY = "key"
+            Config.ANTHROPIC_API_KEY = "key"
             Config.GOOGLE_SERVICE_ACCOUNT = "account"
             with pytest.raises(EnvironmentError, match="APP_ENV"):
                 Config.validate()
         finally:
-            Config.APP_ENV, Config.OPENAI_API_KEY, Config.GOOGLE_SERVICE_ACCOUNT = originals
+            Config.APP_ENV, Config.ANTHROPIC_API_KEY, Config.GOOGLE_SERVICE_ACCOUNT = originals
 
     def test_validate_reports_all_missing(self):
-        originals = (Config.APP_ENV, Config.OPENAI_API_KEY, Config.GOOGLE_SERVICE_ACCOUNT)
+        originals = (Config.APP_ENV, Config.ANTHROPIC_API_KEY, Config.GOOGLE_SERVICE_ACCOUNT)
         try:
             Config.APP_ENV = None
-            Config.OPENAI_API_KEY = None
+            Config.ANTHROPIC_API_KEY = None
             Config.GOOGLE_SERVICE_ACCOUNT = None
-            with pytest.raises(EnvironmentError, match="APP_ENV.*OPENAI_API_KEY.*GOOGLE_SERVICE_ACCOUNT"):
+            with pytest.raises(EnvironmentError, match="APP_ENV.*ANTHROPIC_API_KEY.*GOOGLE_SERVICE_ACCOUNT"):
                 Config.validate()
         finally:
-            Config.APP_ENV, Config.OPENAI_API_KEY, Config.GOOGLE_SERVICE_ACCOUNT = originals
+            Config.APP_ENV, Config.ANTHROPIC_API_KEY, Config.GOOGLE_SERVICE_ACCOUNT = originals

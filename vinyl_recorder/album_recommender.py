@@ -20,7 +20,7 @@ class RecommendedAlbums(BaseModel):
 # ==== ALBUM RECOMMENDER ==== #
 class AlbumRecommender:
     def __init__(
-        self, sheeter, llm_choice: str = "openai", model_choice: str = "gpt-4o"
+        self, sheeter, llm_choice: str = "anthropic", model_choice: str = None
     ):
         logger.info("Starting Album Recommender")
 

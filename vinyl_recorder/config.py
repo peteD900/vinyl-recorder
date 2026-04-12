@@ -18,9 +18,9 @@ class Config:
     IMAGES_DIR_PROD = LOCAL_WD / "data/all_images"
     IMAGES_DIR_TEST = LOCAL_WD / "data/test_images"
 
-    # LLM OPENAI
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-    OPENAI_MODEL = "gpt-4o"
+    # LLM ANTHROPIC
+    ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+    ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
 
     # TELEGRAM
     BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -39,7 +39,7 @@ class Config:
         """Check that required environment variables are set."""
         required = {
             "APP_ENV": cls.APP_ENV,
-            "OPENAI_API_KEY": cls.OPENAI_API_KEY,
+            "ANTHROPIC_API_KEY": cls.ANTHROPIC_API_KEY,
             "GOOGLE_SERVICE_ACCOUNT": cls.GOOGLE_SERVICE_ACCOUNT,
         }
         missing = [name for name, value in required.items() if not value]
