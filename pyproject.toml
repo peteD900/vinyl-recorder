@@ -20,6 +20,12 @@ dependencies = [
 dev = [
     "pytest>=8.0",
 ]
+# One-shot: needed only for scripts/migrate_sheets_to_sqlite.py.
+# Install with: pip install -e '.[migration]'  — remove once migration done.
+migration = [
+    "gspread>=6.2.1",
+    "google-auth>=2.45.0",
+]
 
 [tool.setuptools]
 packages = ["vinyl_recorder"]
