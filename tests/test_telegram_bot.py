@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock
 from vinyl_recorder.vinyl_cover_identifier import VinylData
-from vinyl_recorder.discogs import DiscogsData
+from vinyl_recorder.album_enricher import EnrichmentData
 from vinyl_recorder.telegram_bot import VinylBot
 
 
@@ -18,7 +18,7 @@ def _make_bot():
 
 
 class TestFormatResultsMessage:
-    def test_with_discogs_data(self):
+    def test_with_enrichment_data(self):
         bot = _make_bot()
         vinyl = VinylData(
             success=True,
@@ -27,13 +27,12 @@ class TestFormatResultsMessage:
             album_year="1991",
             confidence="high",
         )
-        discogs = DiscogsData(
-            discogs_title="Nirvana - Nevermind",
-            tracklist=["1 Smells Like Teen Spirit", "2 In Bloom"],
+        enrichment = EnrichmentData(
             image_url="https://example.com/cover.jpg",
+            tracklist=["1 Smells Like Teen Spirit", "2 In Bloom"],
         )
 
-        msg = bot.format_results_message(vinyl, discogs)
+        msg = bot.format_results_message(vinyl, enrichment)
 
         assert "Nirvana" in msg
         assert "Nevermind" in msg
@@ -43,7 +42,7 @@ class TestFormatResultsMessage:
         assert "In Bloom" in msg
         assert "Add this to your collection?" in msg
 
-    def test_without_discogs_data(self):
+    def test_without_enrichment_data(self):
         bot = _make_bot()
         vinyl = VinylData(
             success=True,

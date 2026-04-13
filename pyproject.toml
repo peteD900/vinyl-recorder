@@ -5,18 +5,17 @@ description = "Keep track of vinyl collection and update data using telegram bot
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "asyncio>=4.0.0",
+    "anthropic>=0.40.0",
     "fastapi>=0.128.0",
     "google-auth>=2.45.0",
     "gspread>=6.2.1",
     "jinja2>=3.1.6",
-    "anthropic>=0.40.0",
     "pandas>=2.3.3",
     "pillow>=12.0.0",
     "pyprojroot>=0.3.0",
     "python-dotenv>=1.2.1",
     "python-telegram-bot>=22.5",
-    "python3-discogs-client>=2.8",
+    "requests>=2.32.0",
     "uvicorn>=0.40.0",
 ]
 

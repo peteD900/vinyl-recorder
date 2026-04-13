@@ -7,7 +7,7 @@ from pyprojroot import here
 
 from vinyl_recorder.collection_tracker import CollectionTracker
 from vinyl_recorder.vinyl_cover_identifier import VinylIdentifier
-from vinyl_recorder.discogs import DiscogEnricher
+from vinyl_recorder.album_enricher import AlbumEnricher
 from vinyl_recorder.database import AlbumRepository
 from vinyl_recorder.config import get_logger, Config
 
@@ -25,7 +25,7 @@ def main():
     repo = AlbumRepository()
     tracker = CollectionTracker(repo=repo, images_path=IMAGES_DIR, source="local")
     identifier = VinylIdentifier()
-    enricher = DiscogEnricher(repo=repo)
+    enricher = AlbumEnricher(repo=repo)
 
     # Step 1: Identification
     logger.info("Step 1: Identifying albums...")
@@ -46,7 +46,7 @@ def main():
                 logger.error(f"  ✗ Failed to identify {image_path.name}: {e}")
 
     # Step 2: Enrichment
-    logger.info("\nStep 2: Enriching with Discogs data...")
+    logger.info("\nStep 2: Enriching with MusicBrainz + LLM tracklist...")
     enricher.enrich_all_pending()
 
     logger.info("\n✓ Process complete!")

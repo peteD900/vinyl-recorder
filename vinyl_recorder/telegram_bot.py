@@ -17,7 +17,7 @@ from telegram.ext import (
 )
 from vinyl_recorder.config import Config
 from vinyl_recorder.vinyl_cover_identifier import VinylIdentifier
-from vinyl_recorder.discogs import DiscogEnricher
+from vinyl_recorder.album_enricher import AlbumEnricher
 from vinyl_recorder.collection_tracker import CollectionTracker
 from vinyl_recorder.database import AlbumRepository
 from vinyl_recorder.album_recommender import AlbumRecommender
@@ -43,7 +43,7 @@ class VinylBot:
         self,
         repo: AlbumRepository,
         identifier: VinylIdentifier,
-        enricher: DiscogEnricher,
+        enricher: AlbumEnricher,
         tracker: CollectionTracker,
         recommender: AlbumRecommender,
     ):
@@ -206,20 +206,22 @@ class VinylBot:
                 del self.pending_photos[user_id]
                 return
 
-            # Step 3: Enrich with Discogs
+            # Step 3: Enrich with MusicBrainz + LLM
             logger.info(
                 f"Enriching: {vinyl_data.artist} - {vinyl_data.album_title}"
             )
-            discogs_data = self.enricher.search_discogs(
-                artist=vinyl_data.artist, album=vinyl_data.album_title
+            enrichment_data = self.enricher.fetch_enrichment(
+                artist=vinyl_data.artist,
+                album=vinyl_data.album_title,
+                album_year=vinyl_data.album_year,
             )
 
             # Store results
             pending["vinyl_data"] = vinyl_data
-            pending["discogs_data"] = discogs_data
+            pending["enrichment_data"] = enrichment_data
 
             # Format results message
-            message = self.format_results_message(vinyl_data, discogs_data)
+            message = self.format_results_message(vinyl_data, enrichment_data)
 
             # Create confirmation keyboard
             keyboard = [
@@ -271,7 +273,7 @@ class VinylBot:
 
         pending = self.pending_photos[user_id]
         vinyl_data = pending["vinyl_data"]
-        discogs_data = pending.get("discogs_data")
+        enrichment_data = pending.get("enrichment_data")
 
         # Show processing message
         await query.edit_message_text("🔍 Adding to collection... please wait")
@@ -285,14 +287,17 @@ class VinylBot:
                 image_name=pending["image_name"], result=vinyl_data
             )
 
-            # If we have Discogs data, enrich immediately
-            if discogs_data:
+            # If we have enrichment data, save it immediately
+            if enrichment_data:
                 album_row = self.repo.find_by_image_name(pending["image_name"])
                 if album_row:
-                    self.repo.update_album(album_row["id"], {
-                        "cover_image_url": discogs_data.image_url,
-                        "tracklist": json.dumps(discogs_data.tracklist),
-                    })
+                    updates = {}
+                    if enrichment_data.image_url:
+                        updates["cover_image_url"] = enrichment_data.image_url
+                    if enrichment_data.tracklist:
+                        updates["tracklist"] = json.dumps(enrichment_data.tracklist)
+                    if updates:
+                        self.repo.update_album(album_row["id"], updates)
 
             # Success message
             success_msg = (
@@ -302,8 +307,8 @@ class VinylBot:
                 f"📅 Year: {vinyl_data.album_year or 'Unknown'}\n"
             )
 
-            if discogs_data and discogs_data.image_url:
-                success_msg += f"\n[Album cover]({discogs_data.image_url})"
+            if enrichment_data and enrichment_data.image_url:
+                success_msg += f"\n[Album cover]({enrichment_data.image_url})"
 
             await query.edit_message_text(success_msg, parse_mode="Markdown")
 
@@ -331,7 +336,7 @@ class VinylBot:
 
         await query.edit_message_text("❌ Cancelled. Send another photo anytime!")
 
-    def format_results_message(self, vinyl_data, discogs_data):
+    def format_results_message(self, vinyl_data, enrichment_data):
         """Format identification results for display."""
         message = "🎸 *Found Album:*\n\n"
         message += f"🎤 Artist: {vinyl_data.artist}\n"
@@ -339,9 +344,9 @@ class VinylBot:
         message += f"📅 Year: {vinyl_data.album_year or 'Unknown'}\n"
         message += f"✨ Confidence: {vinyl_data.confidence}\n"
 
-        if discogs_data:
+        if enrichment_data and enrichment_data.tracklist:
             tracks = "Tracks:\n"
-            for track in discogs_data.tracklist:
+            for track in enrichment_data.tracklist:
                 tracks += f"{track}\n"
 
             message += "\n📀 *Enrichment Info:*\n"
@@ -406,7 +411,7 @@ if __name__ == "__main__":
     # Initialize components
     repo = AlbumRepository()
     identifier = VinylIdentifier()
-    enricher = DiscogEnricher(repo=repo)
+    enricher = AlbumEnricher(repo=repo)
     tracker = CollectionTracker(repo=repo, source="telegram")
     recommender = AlbumRecommender(repo=repo)
 

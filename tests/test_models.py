@@ -2,7 +2,7 @@
 
 from vinyl_recorder.vinyl_cover_identifier import VinylData
 from vinyl_recorder.collection_tracker import TrackerData
-from vinyl_recorder.discogs import DiscogsData
+from vinyl_recorder.album_enricher import EnrichmentData, TracklistData
 
 
 class TestVinylData:
@@ -61,22 +61,22 @@ class TestTrackerData:
         assert data.success is True
 
 
-class TestDiscogsData:
-    def test_discogs_data(self):
-        data = DiscogsData(
-            discogs_title="Nirvana - Nevermind",
-            tracklist=["1 Smells Like Teen Spirit", "2 In Bloom"],
+class TestEnrichmentData:
+    def test_enrichment_data(self):
+        data = EnrichmentData(
             image_url="https://example.com/cover.jpg",
+            tracklist=["1 Smells Like Teen Spirit", "2 In Bloom"],
         )
-        assert data.discogs_title == "Nirvana - Nevermind"
-        assert len(data.tracklist) == 2
         assert data.image_url == "https://example.com/cover.jpg"
+        assert len(data.tracklist) == 2
 
-    def test_empty_tracklist(self):
-        data = DiscogsData(
-            discogs_title="Test Album",
-            tracklist=[],
-            image_url="",
-        )
-        assert data.tracklist == []
+    def test_empty_enrichment(self):
+        data = EnrichmentData()
         assert data.image_url == ""
+        assert data.tracklist == []
+
+
+class TestTracklistData:
+    def test_tracklist_data(self):
+        data = TracklistData(tracks=["1 Track A", "2 Track B"])
+        assert data.tracks == ["1 Track A", "2 Track B"]
