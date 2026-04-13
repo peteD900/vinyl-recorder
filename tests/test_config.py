@@ -6,30 +6,28 @@ from vinyl_recorder.config import Config
 
 
 class TestConfigEnvSwitching:
-    def test_vinyl_sheet_id_prod(self):
+    def test_db_path_prod(self):
         original = Config.APP_ENV
         try:
             Config.APP_ENV = "prod"
-            Config.VINYL_SHEET_PROD = "prod-sheet-id"
-            assert Config.vinyl_sheet_id() == "prod-sheet-id"
+            assert str(Config.db_path()).endswith("vinyl_collection.db")
         finally:
             Config.APP_ENV = original
 
-    def test_vinyl_sheet_id_test(self):
+    def test_db_path_test(self):
         original = Config.APP_ENV
         try:
             Config.APP_ENV = "test"
-            Config.VINYL_SHEET_TEST = "test-sheet-id"
-            assert Config.vinyl_sheet_id() == "test-sheet-id"
+            assert str(Config.db_path()).endswith("vinyl_collection_test.db")
         finally:
             Config.APP_ENV = original
 
-    def test_vinyl_sheet_id_invalid_env(self):
+    def test_db_path_invalid_env(self):
         original = Config.APP_ENV
         try:
             Config.APP_ENV = "invalid"
             with pytest.raises(ValueError, match="APP_ENV must be"):
-                Config.vinyl_sheet_id()
+                Config.db_path()
         finally:
             Config.APP_ENV = original
 

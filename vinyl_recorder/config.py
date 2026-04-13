@@ -18,6 +18,10 @@ class Config:
     IMAGES_DIR_PROD = LOCAL_WD / "data/all_images"
     IMAGES_DIR_TEST = LOCAL_WD / "data/test_images"
 
+    # SQLITE DB FILES
+    DB_PATH_PROD = LOCAL_WD / "data/vinyl_collection.db"
+    DB_PATH_TEST = LOCAL_WD / "data/vinyl_collection_test.db"
+
     # LLM ANTHROPIC
     ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
     ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
@@ -25,22 +29,6 @@ class Config:
     # TELEGRAM
     BOT_TOKEN = os.getenv("BOT_TOKEN")
     BOT_TOKEN_TEST = os.getenv("BOT_TOKEN_TEST")
-
-    # DISCOGS
-    DISCOGS_API_KEY = os.getenv("DISCOGS_API_KEY")
-
-    # GOOGLE SHEETS (legacy — only used by one-shot migration script)
-    GOOGLE_SERVICE_ACCOUNT = os.getenv("GOOGLE_SERVICE_ACCOUNT")
-    VINYL_SHEET_TEST = os.getenv("VINYL_SHEET_TEST")
-    VINYL_SHEET_PROD = os.getenv("VINYL_SHEET_PROD")
-
-    @classmethod
-    def vinyl_sheet_id(cls) -> str:
-        if cls.APP_ENV == "prod":
-            return cls.VINYL_SHEET_PROD
-        if cls.APP_ENV == "test":
-            return cls.VINYL_SHEET_TEST
-        raise ValueError(f"APP_ENV must be 'prod' or 'test', got: {cls.APP_ENV!r}")
 
     @classmethod
     def validate(cls):
@@ -64,11 +52,19 @@ class Config:
         raise ValueError(f"APP_ENV must be 'prod' or 'test', got: {cls.APP_ENV!r}")
 
     @classmethod
-    def local_image_dir(cls) -> str:
+    def local_image_dir(cls):
         if cls.APP_ENV == "prod":
             return cls.IMAGES_DIR_PROD
         if cls.APP_ENV == "test":
             return cls.IMAGES_DIR_TEST
+        raise ValueError(f"APP_ENV must be 'prod' or 'test', got: {cls.APP_ENV!r}")
+
+    @classmethod
+    def db_path(cls):
+        if cls.APP_ENV == "prod":
+            return cls.DB_PATH_PROD
+        if cls.APP_ENV == "test":
+            return cls.DB_PATH_TEST
         raise ValueError(f"APP_ENV must be 'prod' or 'test', got: {cls.APP_ENV!r}")
 
 

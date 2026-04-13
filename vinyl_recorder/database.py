@@ -2,12 +2,9 @@
 
 import sqlite3
 import json
-from pathlib import Path
-from vinyl_recorder.config import get_logger
+from vinyl_recorder.config import Config, get_logger
 
 logger = get_logger()
-
-DEFAULT_DB_PATH = Path(__file__).parent.parent / "data" / "vinyl_collection.db"
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS albums (
@@ -42,7 +39,7 @@ CREATE TABLE IF NOT EXISTS to_buy (
 
 class AlbumRepository:
     def __init__(self, db_path: str = None):
-        self.db_path = str(db_path or DEFAULT_DB_PATH)
+        self.db_path = str(db_path or Config.db_path())
         self.conn = sqlite3.connect(self.db_path)
         self.conn.row_factory = sqlite3.Row
         self._init_schema()
