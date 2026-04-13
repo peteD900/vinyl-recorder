@@ -14,6 +14,7 @@ def _make_bot():
         enricher=MagicMock(),
         tracker=MagicMock(),
         recommender=MagicMock(),
+        verifier=MagicMock(),
     )
 
 

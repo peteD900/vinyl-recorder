@@ -21,6 +21,7 @@ from vinyl_recorder.album_enricher import AlbumEnricher
 from vinyl_recorder.collection_tracker import CollectionTracker
 from vinyl_recorder.database import AlbumRepository
 from vinyl_recorder.album_recommender import AlbumRecommender
+from vinyl_recorder.album_verifier import AlbumVerifier
 
 import logging
 
@@ -46,14 +47,17 @@ class VinylBot:
         enricher: AlbumEnricher,
         tracker: CollectionTracker,
         recommender: AlbumRecommender,
+        verifier: AlbumVerifier,
     ):
         self.repo = repo
         self.identifier = identifier
         self.enricher = enricher
         self.tracker = tracker
         self.recommender = recommender
+        self.verifier = verifier
         self.bot_token = Config.bot_token()
         self.pending_photos = {}  # {user_id: {image data and results}}
+        self.pending_tobuy = {}   # {user_id: {"awaiting_input": bool, "verified": VerifiedAlbum}}
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command."""
@@ -63,7 +67,10 @@ class VinylBot:
             "The album can then be added to your collection.\n\n"
             "Commands:\n"
             "/start - Show this message\n"
-            "/recommend - Recommend albums with 'distance' similarity metric.\n",
+            "/recommend - Recommend albums with 'distance' similarity metric.\n"
+            "/tobuy - Add an album to your wishlist\n"
+            "/buylist - Show your wishlist\n"
+            "/bought <n> - Remove item N from your wishlist\n",
             parse_mode="Markdown",
         )
 
@@ -336,6 +343,164 @@ class VinylBot:
 
         await query.edit_message_text("❌ Cancelled. Send another photo anytime!")
 
+    # ---- /tobuy wishlist flow ---- #
+
+    async def tobuy_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Start the /tobuy flow — ask the user to describe an album."""
+        user_id = update.effective_user.id
+        self.pending_tobuy[user_id] = {"awaiting_input": True, "verified": None}
+        await update.message.reply_text(
+            "🛒 What album do you want to add to your wishlist?\n"
+            "Describe it in your own words (e.g. 'new Radiohead album' or "
+            "'Kind of Blue Miles Davis')."
+        )
+
+    async def handle_tobuy_text(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """Handle freeform text during a /tobuy flow."""
+        user_id = update.effective_user.id
+        pending = self.pending_tobuy.get(user_id)
+
+        if not pending or not pending.get("awaiting_input"):
+            # Not in a /tobuy flow — ignore this text
+            return
+
+        user_text = update.message.text
+        await update.message.reply_text("🔎 Looking that up...")
+
+        verified = self.verifier.verify_album(user_text)
+
+        if not verified.found:
+            clarification = (
+                verified.clarification
+                or "I couldn't identify that album. Try again with more detail?"
+            )
+            await update.message.reply_text(f"❓ {clarification}")
+            # stay in awaiting_input state so user can retry
+            return
+
+        # Check if already owned / already on list before confirming
+        if self.repo.already_owned(verified.artist, verified.album_title):
+            await update.message.reply_text(
+                f"⚠️ You already own *{verified.artist} - {verified.album_title}*!",
+                parse_mode="Markdown",
+            )
+            del self.pending_tobuy[user_id]
+            return
+
+        if self.repo.is_on_buy_list(verified.artist, verified.album_title):
+            await update.message.reply_text(
+                f"⚠️ *{verified.artist} - {verified.album_title}* is already on "
+                f"your wishlist.",
+                parse_mode="Markdown",
+            )
+            del self.pending_tobuy[user_id]
+            return
+
+        self.pending_tobuy[user_id] = {
+            "awaiting_input": False,
+            "verified": verified,
+        }
+
+        year = f" ({verified.album_year})" if verified.album_year else ""
+        keyboard = [
+            [
+                InlineKeyboardButton("✅ Add", callback_data="tobuy_confirm"),
+                InlineKeyboardButton("❌ Cancel", callback_data="tobuy_cancel"),
+            ]
+        ]
+        await update.message.reply_text(
+            f"Add *{verified.artist} - {verified.album_title}*{year} to your "
+            f"wishlist?",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="Markdown",
+        )
+
+    async def handle_tobuy_confirm(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """User confirmed — add the verified album to the to_buy table."""
+        query = update.callback_query
+        await query.answer()
+        user_id = update.effective_user.id
+
+        pending = self.pending_tobuy.get(user_id)
+        if not pending or not pending.get("verified"):
+            await query.edit_message_text("❌ No pending wishlist item. Start over with /tobuy.")
+            return
+
+        verified = pending["verified"]
+        try:
+            self.repo.add_to_buy(
+                artist=verified.artist,
+                album_title=verified.album_title,
+                album_year=verified.album_year,
+                verified=True,
+            )
+            await query.edit_message_text(
+                f"✅ Added *{verified.artist} - {verified.album_title}* to your wishlist.",
+                parse_mode="Markdown",
+            )
+        except Exception as e:
+            logger.error(f"Error adding to wishlist: {e}")
+            await query.edit_message_text(f"❌ Error adding to wishlist: {e}")
+        finally:
+            if user_id in self.pending_tobuy:
+                del self.pending_tobuy[user_id]
+
+    async def handle_tobuy_cancel(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """User cancelled the /tobuy flow."""
+        query = update.callback_query
+        await query.answer()
+        user_id = update.effective_user.id
+        if user_id in self.pending_tobuy:
+            del self.pending_tobuy[user_id]
+        await query.edit_message_text("❌ Cancelled.")
+
+    async def buylist_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """Show the current to_buy list."""
+        items = self.repo.get_to_buy_list()
+        if not items:
+            await update.message.reply_text("🛒 Your wishlist is empty.")
+            return
+
+        lines = ["🛒 *Your Wishlist:*\n"]
+        for idx, item in enumerate(items, 1):
+            year = f" ({item['album_year']})" if item.get("album_year") else ""
+            lines.append(f"{idx}. {item['artist']} - {item['album_title']}{year}")
+
+        await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+    async def bought_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """Remove an item from the wishlist by its position number."""
+        args = context.args
+        if not args or not args[0].isdigit():
+            await update.message.reply_text("Usage: /bought <number>")
+            return
+
+        index = int(args[0]) - 1
+        items = self.repo.get_to_buy_list()
+
+        if index < 0 or index >= len(items):
+            await update.message.reply_text(
+                f"❌ No item #{index + 1} on your wishlist."
+            )
+            return
+
+        item = items[index]
+        self.repo.remove_from_to_buy(item["id"])
+        await update.message.reply_text(
+            f"🎉 Removed *{item['artist']} - {item['album_title']}* from your wishlist.",
+            parse_mode="Markdown",
+        )
+
     def format_results_message(self, vinyl_data, enrichment_data):
         """Format identification results for display."""
         message = "🎸 *Found Album:*\n\n"
@@ -364,6 +529,9 @@ class VinylBot:
             [
                 BotCommand("start", "Help / list commands"),
                 BotCommand("recommend", "Recommend albums to buy"),
+                BotCommand("tobuy", "Add an album to your wishlist"),
+                BotCommand("buylist", "Show your wishlist"),
+                BotCommand("bought", "Remove an item from your wishlist"),
             ]
         )
 
@@ -377,8 +545,15 @@ class VinylBot:
         # Add handlers
         application.add_handler(CommandHandler("start", self.start_command))
         application.add_handler(CommandHandler("recommend", self.recommend_command))
+        application.add_handler(CommandHandler("tobuy", self.tobuy_command))
+        application.add_handler(CommandHandler("buylist", self.buylist_command))
+        application.add_handler(CommandHandler("bought", self.bought_command))
 
         application.add_handler(MessageHandler(filters.PHOTO, self.handle_photo))
+        # Text messages go to the /tobuy flow handler (it ignores non-flow input)
+        application.add_handler(
+            MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_tobuy_text)
+        )
 
         # Callback handlers for buttons
         application.add_handler(
@@ -399,6 +574,14 @@ class VinylBot:
             CallbackQueryHandler(self.handle_recommend, pattern="^distance")
         )
 
+        # Callback handlers for /tobuy confirmation
+        application.add_handler(
+            CallbackQueryHandler(self.handle_tobuy_confirm, pattern="^tobuy_confirm$")
+        )
+        application.add_handler(
+            CallbackQueryHandler(self.handle_tobuy_cancel, pattern="^tobuy_cancel$")
+        )
+
         # list handlers with /
         application.post_init = self.post_init
 
@@ -414,6 +597,7 @@ if __name__ == "__main__":
     enricher = AlbumEnricher(repo=repo)
     tracker = CollectionTracker(repo=repo, source="telegram")
     recommender = AlbumRecommender(repo=repo)
+    verifier = AlbumVerifier()
 
     # Start bot
     bot = VinylBot(
@@ -422,5 +606,6 @@ if __name__ == "__main__":
         enricher=enricher,
         tracker=tracker,
         recommender=recommender,
+        verifier=verifier,
     )
     bot.start()
