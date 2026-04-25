@@ -5,8 +5,6 @@ Telegram bot for identifying and adding vinyl albums to collection.
 import base64
 from datetime import datetime
 import json
-import asyncio
-from io import BytesIO
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
 from telegram.ext import (
@@ -19,10 +17,11 @@ from telegram.ext import (
 )
 from vinyl_recorder.config import Config
 from vinyl_recorder.vinyl_cover_identifier import VinylIdentifier
-from vinyl_recorder.discogs import DiscogEnricher
+from vinyl_recorder.album_enricher import AlbumEnricher
 from vinyl_recorder.collection_tracker import CollectionTracker
-from vinyl_recorder.ghseets import GoogleSheeter
+from vinyl_recorder.database import AlbumRepository
 from vinyl_recorder.album_recommender import AlbumRecommender
+from vinyl_recorder.album_verifier import AlbumVerifier
 
 import logging
 
@@ -43,29 +42,35 @@ logger = logging.getLogger(__name__)
 class VinylBot:
     def __init__(
         self,
-        sheeter: GoogleSheeter,
+        repo: AlbumRepository,
         identifier: VinylIdentifier,
-        enricher: DiscogEnricher,
+        enricher: AlbumEnricher,
         tracker: CollectionTracker,
         recommender: AlbumRecommender,
+        verifier: AlbumVerifier,
     ):
-        self.sheeter = sheeter
+        self.repo = repo
         self.identifier = identifier
         self.enricher = enricher
         self.tracker = tracker
         self.recommender = recommender
+        self.verifier = verifier
         self.bot_token = Config.bot_token()
         self.pending_photos = {}  # {user_id: {image data and results}}
+        self.pending_tobuy = {}   # {user_id: {"awaiting_input": bool, "verified": VerifiedAlbum}}
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command."""
         await update.message.reply_text(
             "🎵 *Vinyl Collection Bot* 🎵\n\n"
-            "Send a photo of an album cover to this bot. It will send get to an LLM for identification."
-            "Follwing this the album can optionally be added to the overall collection in google sheets.\n\n"
+            "Send a photo of an album cover to identify it with an LLM.\n"
+            "The album can then be added to your collection.\n\n"
             "Commands:\n"
             "/start - Show this message\n"
-            "/recommend - Recommend albums with 'distance' similarity metric.\n",
+            "/recommend - Recommend albums with 'distance' similarity metric.\n"
+            "/tobuy - Add an album to your wishlist\n"
+            "/buylist - Show your wishlist\n"
+            "/bought <n> - Remove item N from your wishlist\n",
             parse_mode="Markdown",
         )
 
@@ -98,7 +103,7 @@ class VinylBot:
     async def handle_recommend(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
-        """User clicked Yes - run identification and enrichment."""
+        """Handle recommendation distance selection."""
         query = update.callback_query
         await query.answer()
         user_id = update.effective_user.id
@@ -114,7 +119,7 @@ class VinylBot:
             taste_distance=distance, n_suggestions=5
         )
 
-        albums = recommender.parse_albums(results)
+        albums = self.recommender.parse_albums(results)
 
         message = "Recommended Albums:\n\n"
         message += albums
@@ -194,11 +199,11 @@ class VinylBot:
             # Update message
             await query.edit_message_text(
                 f"✓ Identified as {vinyl_data.artist} - {vinyl_data.album_title}\n"
-                f"🔍 Looking up details on Discogs..."
+                f"🔍 Looking up details..."
             )
 
             # Step 2: Check for duplicate
-            if self.sheeter.is_duplicate(vinyl_data.artist, vinyl_data.album_title):
+            if self.repo.is_duplicate(vinyl_data.artist, vinyl_data.album_title):
                 await query.edit_message_text(
                     f"⚠️ *You already have this album!*\n\n"
                     f"Artist: {vinyl_data.artist}\n"
@@ -208,20 +213,22 @@ class VinylBot:
                 del self.pending_photos[user_id]
                 return
 
-            # Step 3: Enrich with Discogs
+            # Step 3: Enrich with MusicBrainz + LLM
             logger.info(
-                f"Enriching with Discogs: {vinyl_data.artist} - {vinyl_data.album_title}"
+                f"Enriching: {vinyl_data.artist} - {vinyl_data.album_title}"
             )
-            discogs_data = self.enricher.search_discogs(
-                artist=vinyl_data.artist, album=vinyl_data.album_title
+            enrichment_data = self.enricher.fetch_enrichment(
+                artist=vinyl_data.artist,
+                album=vinyl_data.album_title,
+                album_year=vinyl_data.album_year,
             )
 
             # Store results
             pending["vinyl_data"] = vinyl_data
-            pending["discogs_data"] = discogs_data
+            pending["enrichment_data"] = enrichment_data
 
             # Format results message
-            message = self.format_results_message(vinyl_data, discogs_data)
+            message = self.format_results_message(vinyl_data, enrichment_data)
 
             # Create confirmation keyboard
             keyboard = [
@@ -273,13 +280,13 @@ class VinylBot:
 
         pending = self.pending_photos[user_id]
         vinyl_data = pending["vinyl_data"]
-        discogs_data = pending.get("discogs_data")
+        enrichment_data = pending.get("enrichment_data")
 
         # Show processing message
-        await query.edit_message_text("🔍 Adding data to Google sheets... please wait")
+        await query.edit_message_text("🔍 Adding to collection... please wait")
 
         try:
-            # Add to tracker (this adds identification data)
+            # Add to tracker (this adds identification data to DB)
             logger.info(
                 f"Adding to collection: {vinyl_data.artist} - {vinyl_data.album_title}"
             )
@@ -287,21 +294,17 @@ class VinylBot:
                 image_name=pending["image_name"], result=vinyl_data
             )
 
-            # If we have Discogs data, enrich immediately
-            if discogs_data:
-                # Find the row we just added
-                image_name = pending["image_name"]
-                row_num = self.sheeter.find_row_by_image_name(image_name)
-
-                if row_num:
-                    self.sheeter.update_row_cells(
-                        row_num,
-                        {
-                            "discogs_title": discogs_data.discogs_title,
-                            "tracklist": json.dumps(discogs_data.tracklist),
-                            "image_url": discogs_data.image_url,
-                        },
-                    )
+            # If we have enrichment data, save it immediately
+            if enrichment_data:
+                album_row = self.repo.find_by_image_name(pending["image_name"])
+                if album_row:
+                    updates = {}
+                    if enrichment_data.image_url:
+                        updates["cover_image_url"] = enrichment_data.image_url
+                    if enrichment_data.tracklist:
+                        updates["tracklist"] = json.dumps(enrichment_data.tracklist)
+                    if updates:
+                        self.repo.update_album(album_row["id"], updates)
 
             # Success message
             success_msg = (
@@ -311,8 +314,8 @@ class VinylBot:
                 f"📅 Year: {vinyl_data.album_year or 'Unknown'}\n"
             )
 
-            if discogs_data and discogs_data.image_url:
-                success_msg += f"\n[Album cover]({discogs_data.image_url})"
+            if enrichment_data and enrichment_data.image_url:
+                success_msg += f"\n[Album cover]({enrichment_data.image_url})"
 
             await query.edit_message_text(success_msg, parse_mode="Markdown")
 
@@ -340,7 +343,165 @@ class VinylBot:
 
         await query.edit_message_text("❌ Cancelled. Send another photo anytime!")
 
-    def format_results_message(self, vinyl_data, discogs_data):
+    # ---- /tobuy wishlist flow ---- #
+
+    async def tobuy_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Start the /tobuy flow — ask the user to describe an album."""
+        user_id = update.effective_user.id
+        self.pending_tobuy[user_id] = {"awaiting_input": True, "verified": None}
+        await update.message.reply_text(
+            "🛒 What album do you want to add to your wishlist?\n"
+            "Describe it in your own words (e.g. 'new Radiohead album' or "
+            "'Kind of Blue Miles Davis')."
+        )
+
+    async def handle_tobuy_text(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """Handle freeform text during a /tobuy flow."""
+        user_id = update.effective_user.id
+        pending = self.pending_tobuy.get(user_id)
+
+        if not pending or not pending.get("awaiting_input"):
+            # Not in a /tobuy flow — ignore this text
+            return
+
+        user_text = update.message.text
+        await update.message.reply_text("🔎 Looking that up...")
+
+        verified = self.verifier.verify_album(user_text)
+
+        if not verified.found:
+            clarification = (
+                verified.clarification
+                or "I couldn't identify that album. Try again with more detail?"
+            )
+            await update.message.reply_text(f"❓ {clarification}")
+            # stay in awaiting_input state so user can retry
+            return
+
+        # Check if already owned / already on list before confirming
+        if self.repo.already_owned(verified.artist, verified.album_title):
+            await update.message.reply_text(
+                f"⚠️ You already own *{verified.artist} - {verified.album_title}*!",
+                parse_mode="Markdown",
+            )
+            del self.pending_tobuy[user_id]
+            return
+
+        if self.repo.is_on_buy_list(verified.artist, verified.album_title):
+            await update.message.reply_text(
+                f"⚠️ *{verified.artist} - {verified.album_title}* is already on "
+                f"your wishlist.",
+                parse_mode="Markdown",
+            )
+            del self.pending_tobuy[user_id]
+            return
+
+        self.pending_tobuy[user_id] = {
+            "awaiting_input": False,
+            "verified": verified,
+        }
+
+        year = f" ({verified.album_year})" if verified.album_year else ""
+        keyboard = [
+            [
+                InlineKeyboardButton("✅ Add", callback_data="tobuy_confirm"),
+                InlineKeyboardButton("❌ Cancel", callback_data="tobuy_cancel"),
+            ]
+        ]
+        await update.message.reply_text(
+            f"Add *{verified.artist} - {verified.album_title}*{year} to your "
+            f"wishlist?",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="Markdown",
+        )
+
+    async def handle_tobuy_confirm(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """User confirmed — add the verified album to the to_buy table."""
+        query = update.callback_query
+        await query.answer()
+        user_id = update.effective_user.id
+
+        pending = self.pending_tobuy.get(user_id)
+        if not pending or not pending.get("verified"):
+            await query.edit_message_text("❌ No pending wishlist item. Start over with /tobuy.")
+            return
+
+        verified = pending["verified"]
+        try:
+            self.repo.add_to_buy(
+                artist=verified.artist,
+                album_title=verified.album_title,
+                album_year=verified.album_year,
+                verified=True,
+            )
+            await query.edit_message_text(
+                f"✅ Added *{verified.artist} - {verified.album_title}* to your wishlist.",
+                parse_mode="Markdown",
+            )
+        except Exception as e:
+            logger.error(f"Error adding to wishlist: {e}")
+            await query.edit_message_text(f"❌ Error adding to wishlist: {e}")
+        finally:
+            if user_id in self.pending_tobuy:
+                del self.pending_tobuy[user_id]
+
+    async def handle_tobuy_cancel(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """User cancelled the /tobuy flow."""
+        query = update.callback_query
+        await query.answer()
+        user_id = update.effective_user.id
+        if user_id in self.pending_tobuy:
+            del self.pending_tobuy[user_id]
+        await query.edit_message_text("❌ Cancelled.")
+
+    async def buylist_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """Show the current to_buy list."""
+        items = self.repo.get_to_buy_list()
+        if not items:
+            await update.message.reply_text("🛒 Your wishlist is empty.")
+            return
+
+        lines = ["🛒 *Your Wishlist:*\n"]
+        for idx, item in enumerate(items, 1):
+            year = f" ({item['album_year']})" if item.get("album_year") else ""
+            lines.append(f"{idx}. {item['artist']} - {item['album_title']}{year}")
+
+        await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+    async def bought_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """Remove an item from the wishlist by its position number."""
+        args = context.args
+        if not args or not args[0].isdigit():
+            await update.message.reply_text("Usage: /bought <number>")
+            return
+
+        index = int(args[0]) - 1
+        items = self.repo.get_to_buy_list()
+
+        if index < 0 or index >= len(items):
+            await update.message.reply_text(
+                f"❌ No item #{index + 1} on your wishlist."
+            )
+            return
+
+        item = items[index]
+        self.repo.remove_from_to_buy(item["id"])
+        await update.message.reply_text(
+            f"🎉 Removed *{item['artist']} - {item['album_title']}* from your wishlist.",
+            parse_mode="Markdown",
+        )
+
+    def format_results_message(self, vinyl_data, enrichment_data):
         """Format identification results for display."""
         message = "🎸 *Found Album:*\n\n"
         message += f"🎤 Artist: {vinyl_data.artist}\n"
@@ -348,15 +509,15 @@ class VinylBot:
         message += f"📅 Year: {vinyl_data.album_year or 'Unknown'}\n"
         message += f"✨ Confidence: {vinyl_data.confidence}\n"
 
-        if discogs_data:
+        if enrichment_data and enrichment_data.tracklist:
             tracks = "Tracks:\n"
-            for track in discogs_data.tracklist:
+            for track in enrichment_data.tracklist:
                 tracks += f"{track}\n"
 
-            message += "\n📀 *Discogs Info:*\n"
+            message += "\n📀 *Enrichment Info:*\n"
             message += tracks
         else:
-            message += "\n⚠️ Could not find on Discogs\n"
+            message += "\n⚠️ Could not find enrichment data\n"
 
         message += "\nAdd this to your collection?"
 
@@ -368,6 +529,9 @@ class VinylBot:
             [
                 BotCommand("start", "Help / list commands"),
                 BotCommand("recommend", "Recommend albums to buy"),
+                BotCommand("tobuy", "Add an album to your wishlist"),
+                BotCommand("buylist", "Show your wishlist"),
+                BotCommand("bought", "Remove an item from your wishlist"),
             ]
         )
 
@@ -381,8 +545,15 @@ class VinylBot:
         # Add handlers
         application.add_handler(CommandHandler("start", self.start_command))
         application.add_handler(CommandHandler("recommend", self.recommend_command))
+        application.add_handler(CommandHandler("tobuy", self.tobuy_command))
+        application.add_handler(CommandHandler("buylist", self.buylist_command))
+        application.add_handler(CommandHandler("bought", self.bought_command))
 
         application.add_handler(MessageHandler(filters.PHOTO, self.handle_photo))
+        # Text messages go to the /tobuy flow handler (it ignores non-flow input)
+        application.add_handler(
+            MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_tobuy_text)
+        )
 
         # Callback handlers for buttons
         application.add_handler(
@@ -403,6 +574,14 @@ class VinylBot:
             CallbackQueryHandler(self.handle_recommend, pattern="^distance")
         )
 
+        # Callback handlers for /tobuy confirmation
+        application.add_handler(
+            CallbackQueryHandler(self.handle_tobuy_confirm, pattern="^tobuy_confirm$")
+        )
+        application.add_handler(
+            CallbackQueryHandler(self.handle_tobuy_cancel, pattern="^tobuy_cancel$")
+        )
+
         # list handlers with /
         application.post_init = self.post_init
 
@@ -413,18 +592,20 @@ class VinylBot:
 
 if __name__ == "__main__":
     # Initialize components
-    sheeter = GoogleSheeter()
+    repo = AlbumRepository()
     identifier = VinylIdentifier()
-    enricher = DiscogEnricher(sheeter=sheeter)
-    tracker = CollectionTracker(sheeter=sheeter, source="telegram")
-    recommender = AlbumRecommender(sheeter=sheeter)
+    enricher = AlbumEnricher(repo=repo)
+    tracker = CollectionTracker(repo=repo, source="telegram")
+    recommender = AlbumRecommender(repo=repo)
+    verifier = AlbumVerifier()
 
     # Start bot
     bot = VinylBot(
-        sheeter=sheeter,
+        repo=repo,
         identifier=identifier,
         enricher=enricher,
         tracker=tracker,
         recommender=recommender,
+        verifier=verifier,
     )
     bot.start()

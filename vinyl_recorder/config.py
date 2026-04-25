@@ -18,45 +18,54 @@ class Config:
     IMAGES_DIR_PROD = LOCAL_WD / "data/all_images"
     IMAGES_DIR_TEST = LOCAL_WD / "data/test_images"
 
-    # LLM OPENAI
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-    OPENAI_MODEL = "gpt-4o"
+    # SQLITE DB FILES
+    DB_PATH_PROD = LOCAL_WD / "data/vinyl_collection.db"
+    DB_PATH_TEST = LOCAL_WD / "data/vinyl_collection_test.db"
+
+    # LLM ANTHROPIC
+    ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+    ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
 
     # TELEGRAM
     BOT_TOKEN = os.getenv("BOT_TOKEN")
     BOT_TOKEN_TEST = os.getenv("BOT_TOKEN_TEST")
 
-    # DISCOGS
-    DISCOGS_API_KEY = os.getenv("DISCOGS_API_KEY")
-
-    # GOOGLE SHEETS
-    GOOGLE_SERVICE_ACCOUNT = os.getenv("GOOGLE_SERVICE_ACCOUNT")
-    VINYL_SHEET_TEST = os.getenv("VINYL_SHEET_TEST")
-    VINYL_SHEET_PROD = os.getenv("VINYL_SHEET_PROD")
-
     @classmethod
-    def vinyl_sheet_id(cls) -> str:
-        if cls.APP_ENV == "prod":
-            return cls.VINYL_SHEET_PROD
-
-        if cls.APP_ENV == "test":
-            return cls.VINYL_SHEET_TEST
+    def validate(cls):
+        """Check that required environment variables are set."""
+        required = {
+            "APP_ENV": cls.APP_ENV,
+            "ANTHROPIC_API_KEY": cls.ANTHROPIC_API_KEY,
+        }
+        missing = [name for name, value in required.items() if not value]
+        if missing:
+            raise EnvironmentError(
+                f"Missing required environment variables: {', '.join(missing)}"
+            )
 
     @classmethod
     def bot_token(cls) -> str:
         if cls.APP_ENV == "prod":
             return cls.BOT_TOKEN
-
         if cls.APP_ENV == "test":
             return cls.BOT_TOKEN_TEST
+        raise ValueError(f"APP_ENV must be 'prod' or 'test', got: {cls.APP_ENV!r}")
 
     @classmethod
-    def local_image_dir(cls) -> str:
+    def local_image_dir(cls):
         if cls.APP_ENV == "prod":
             return cls.IMAGES_DIR_PROD
-
         if cls.APP_ENV == "test":
             return cls.IMAGES_DIR_TEST
+        raise ValueError(f"APP_ENV must be 'prod' or 'test', got: {cls.APP_ENV!r}")
+
+    @classmethod
+    def db_path(cls):
+        if cls.APP_ENV == "prod":
+            return cls.DB_PATH_PROD
+        if cls.APP_ENV == "test":
+            return cls.DB_PATH_TEST
+        raise ValueError(f"APP_ENV must be 'prod' or 'test', got: {cls.APP_ENV!r}")
 
 
 def get_logger(name: str = __name__) -> logging.Logger:

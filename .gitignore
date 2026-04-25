@@ -13,6 +13,12 @@ wheels/
 .env
 *.csv
 
+# laptop-only test data
+data/vinyl_collection_test.db
+data/vinyl_collection.db-wal
+data/vinyl_collection.db-shm
+data/test_images/
+
 # images
 *.png
 *.jpeg
