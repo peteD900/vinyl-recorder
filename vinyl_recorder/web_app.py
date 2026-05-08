@@ -51,7 +51,9 @@ async def home(request: Request):
         album["image_url"] = album.get("cover_image_url", "")
 
     return templates.TemplateResponse(
-        "index.html", {"request": request, "albums": albums, "total_count": len(albums)}
+        request=request,
+        name="index.html",
+        context={"albums": albums, "total_count": len(albums)},
     )
 
 
