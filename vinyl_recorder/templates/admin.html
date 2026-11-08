@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Studio - Katie's Vinyl Collection</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f8fafc;
+    color: #0f172a;
+    padding-bottom: 60px;
+}
+
+/* Header */
+header {
+    background: white;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 14px 24px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+}
+.header-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.brand {
+    font-size: 1.15rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #0f172a;
+}
+.brand span {
+    font-size: 0.75rem;
+    background: #0f172a;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 600;
+}
+.nav-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+.nav-link {
+    text-decoration: none;
+    color: #475569;
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 6px 12px;
+    border-radius: 8px;
+    transition: all 0.15s ease;
+}
+.nav-link:hover {
+    color: #0f172a;
+    background: #f1f5f9;
+}
+.logout-btn {
+    background: none;
+    border: 1px solid #cbd5e1;
+    color: #64748b;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+.logout-btn:hover {
+    background: #fee2e2;
+    border-color: #fca5a5;
+    color: #ef4444;
+}
+
+/* Main Container */
+.container {
+    max-width: 1000px;
+    margin: 24px auto;
+    padding: 0 16px;
+}
+
+/* Tabs */
+.tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    background: #e2e8f0;
+    padding: 4px;
+    border-radius: 12px;
+    width: fit-content;
+    max-width: 100%;
+    overflow-x: auto;
+}
+.tab-btn {
+    padding: 8px 18px;
+    border: none;
+    background: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #475569;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+.tab-btn.active {
+    background: white;
+    color: #0f172a;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Tab Panels */
+.tab-panel {
+    display: none;
+}
+.tab-panel.active {
+    display: block;
+}
+
+/* Cards */
+.panel-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+
+.panel-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+.panel-desc {
+    color: #64748b;
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+}
+
+/* Upload Dropzone */
+.dropzone {
+    border: 2px dashed #cbd5e1;
+    border-radius: 16px;
+    padding: 36px 20px;
+    text-align: center;
+    background: #f8fafc;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    margin-bottom: 20px;
+}
+.dropzone:hover {
+    border-color: #0f172a;
+    background: #f1f5f9;
+}
+.dropzone-icon {
+    font-size: 2.5rem;
+    margin-bottom: 12px;
+}
+.dropzone-text {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+.dropzone-sub {
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+/* Preview & Review Section */
+.review-box {
+    display: none;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 20px;
+    margin-top: 20px;
+}
+.review-grid {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 20px;
+}
+@media (max-width: 640px) {
+    .review-grid {
+        grid-template-columns: 1fr;
+    }
+}
+.review-cover {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 12px;
+    background: #cbd5e1;
+    border: 1px solid #e2e8f0;
+}
+.form-row {
+    margin-bottom: 14px;
+}
+.form-row label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+}
+.form-row input, .form-row textarea {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    background: white;
+}
+.form-row textarea {
+    min-height: 80px;
+    font-family: inherit;
+}
+
+.duplicate-alert {
+    display: none;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    color: #92400e;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    margin-bottom: 16px;
+}
+
+/* Buttons */
+.btn-primary {
+    background: #0f172a;
+    color: white;
+    border: none;
+    padding: 11px 22px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.btn-primary:hover {
+    opacity: 0.9;
+}
+.btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.btn-secondary {
+    background: white;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+    padding: 11px 18px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.btn-secondary:hover {
+    background: #f8fafc;
+}
+
+/* Spinner / Progress */
+.loading-indicator {
+    display: none;
+    text-align: center;
+    padding: 28px;
+}
+.spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid #e2e8f0;
+    border-top-color: #0f172a;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 12px;
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Recommender Form */
+.recommender-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+.vibe-pills {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.vibe-btn {
+    padding: 10px 18px;
+    border: 1px solid #cbd5e1;
+    background: white;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.vibe-btn.selected {
+    background: #0f172a;
+    color: white;
+    border-color: #0f172a;
+}
+
+/* Recommendations Grid */
+.rec-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+    margin-top: 24px;
+}
+.rec-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.rec-cover {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    background: #e2e8f0;
+}
+.rec-info {
+    padding: 12px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.rec-artist {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #0f172a;
+}
+.rec-album {
+    font-size: 0.85rem;
+    color: #475569;
+    margin-bottom: 10px;
+}
+.btn-wishlist {
+    width: 100%;
+    padding: 6px;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.btn-wishlist:hover {
+    background: #e2e8f0;
+}
+
+/* Wishlist Table */
+.wishlist-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 20px;
+}
+.wishlist-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 18px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+}
+.item-artist {
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+.item-album {
+    font-size: 0.85rem;
+    color: #64748b;
+}
+.item-actions {
+    display: flex;
+    gap: 8px;
+}
+.btn-sm-danger {
+    background: none;
+    border: 1px solid #fca5a5;
+    color: #ef4444;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+.btn-sm-danger:hover {
+    background: #fee2e2;
+}
+
+.status-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #0f172a;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    display: none;
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+    z-index: 100;
+}
+</style>
+</head>
+<body>
+
+<header>
+    <div class="header-container">
+        <div class="brand">
+            🎵 Katie's Vinyl Collection
+            <span>Studio</span>
+        </div>
+        <div class="nav-actions">
+            <button class="nav-link" style="background: none; border: 1px solid #cbd5e1; cursor: pointer;" onclick="handleDeduplicate()">🧹 Clean Duplicates</button>
+            <a href="/" class="nav-link" target="_blank">View Gallery ↗</a>
+            <button class="logout-btn" onclick="handleLogout()">Log out</button>
+        </div>
+    </div>
+</header>
+
+<div class="container">
+
+    <!-- Navigation Tabs -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('upload')">📸 Add Album</button>
+        <button class="tab-btn" onclick="switchTab('recommend')">✨ Recommender</button>
+        <button class="tab-btn" onclick="switchTab('wishlist')">📝 Wishlist</button>
+    </div>
+
+    <!-- ==================== TAB 1: ADD ALBUM ==================== -->
+    <div class="tab-panel active" id="tab-upload">
+        <div class="panel-card">
+            <div class="panel-title">Add Album via Photo</div>
+            <div class="panel-desc">Take a photo of a vinyl sleeve or upload an image. Claude will identify the artist and album, then auto-fetch high-res cover art and tracklist.</div>
+
+            <!-- Upload Zone -->
+            <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleFile(this.files[0])">
+            <input type="file" id="fileInput" accept="image/*" style="display:none;" onchange="handleFile(this.files[0])">
+
+            <div class="dropzone" onclick="openFilePicker()">
+                <div class="dropzone-icon">📷</div>
+                <div class="dropzone-text">Tap to take photo or choose image</div>
+                <div class="dropzone-sub">Supports iPhone / Android camera or local files (JPG, PNG)</div>
+            </div>
+
+            <!-- Loading Spinner -->
+            <div class="loading-indicator" id="identifyLoading">
+                <div class="spinner"></div>
+                <div style="font-weight: 600;" id="loadingText">Analyzing album cover with Claude...</div>
+                <div style="font-size: 0.8rem; color: #64748b; margin-top: 4px;">Identifying artist, release year, and fetching tracklist</div>
+            </div>
+
+            <!-- Review Card -->
+            <div class="review-box" id="reviewBox">
+                <div class="duplicate-alert" id="duplicateAlert">
+                    ⚠️ <strong>Already in collection!</strong> You already have this record catalogued.
+                </div>
+
+                <div class="review-grid">
+                    <div>
+                        <img id="reviewCover" class="review-cover" src="" alt="Album Cover">
+                    </div>
+                    <div>
+                        <div class="form-row">
+                            <label>Artist</label>
+                            <input type="text" id="editArtist">
+                        </div>
+                        <div class="form-row">
+                            <label>Album Title</label>
+                            <input type="text" id="editAlbum">
+                        </div>
+                        <div class="form-row">
+                            <label>Release Year</label>
+                            <input type="text" id="editYear">
+                        </div>
+                        <div class="form-row">
+                            <label>Cover Art URL</label>
+                            <input type="text" id="editCoverUrl" oninput="document.getElementById('reviewCover').src = this.value">
+                        </div>
+                        <div class="form-row">
+                            <label>Tracklist (one per line)</label>
+                            <textarea id="editTracks"></textarea>
+                        </div>
+
+                        <div style="display: flex; gap: 10px; margin-top: 18px;">
+                            <button class="btn-primary" id="saveAlbumBtn" onclick="saveAlbum()">✅ Add to Collection</button>
+                            <button class="btn-secondary" onclick="resetUpload()">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ==================== TAB 2: RECOMMENDER ==================== -->
+    <div class="tab-panel" id="tab-recommend">
+        <div class="panel-card">
+            <div class="panel-title">AI Album Recommender</div>
+            <div class="panel-desc">Claude analyzes all records currently in Katie's collection and generates personalised recommendations based on your desired exploratory distance.</div>
+
+            <div class="recommender-controls">
+                <div>
+                    <label style="font-size: 0.85rem; font-weight: 700; color: #475569; display: block; margin-bottom: 8px;">RECOMMENDATION DISTANCE</label>
+                    <div class="vibe-pills">
+                        <button class="vibe-btn" onclick="selectVibe(2, this)">🎯 Very Close (2)</button>
+                        <button class="vibe-btn selected" onclick="selectVibe(5, this)">🙂 Similar (5)</button>
+                        <button class="vibe-btn" onclick="selectVibe(7, this)">😐 Balanced (7)</button>
+                        <button class="vibe-btn" onclick="selectVibe(9, this)">🤪 Adventurous (9)</button>
+                    </div>
+                </div>
+
+                <div>
+                    <button class="btn-primary" id="recBtn" onclick="fetchRecommendations()">
+                        🔮 Get Recommendations
+                    </button>
+                </div>
+            </div>
+
+            <!-- Loading Spinner -->
+            <div class="loading-indicator" id="recLoading">
+                <div class="spinner"></div>
+                <div style="font-weight: 600;">Consulting Claude's music brain...</div>
+                <div style="font-size: 0.8rem; color: #64748b; margin-top: 4px;">Matching taste against your existing vinyl catalog</div>
+            </div>
+
+            <!-- Recommendations Grid -->
+            <div class="rec-grid" id="recGrid"></div>
+        </div>
+    </div>
+
+    <!-- ==================== TAB 3: WISHLIST ==================== -->
+    <div class="tab-panel" id="tab-wishlist">
+        <div class="panel-card">
+            <div class="panel-title">Vinyl Wishlist (To Buy)</div>
+            <div class="panel-desc">Keep track of albums you want to hunt down at record stores or online.</div>
+
+            <!-- Add Wishlist Item Form -->
+            <form onsubmit="addWishlistItem(event)" style="display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap;">
+                <input type="text" id="wishArtist" placeholder="Artist" required style="padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; flex: 1; min-width: 150px;">
+                <input type="text" id="wishAlbum" placeholder="Album Title" required style="padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; flex: 1; min-width: 150px;">
+                <button type="submit" class="btn-primary">Add Item</button>
+            </form>
+
+            <div class="wishlist-list" id="wishlistContainer">
+                <div style="color: #64748b; font-size: 0.9rem;">Loading wishlist...</div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Toast notification -->
+<div class="status-toast" id="toast"></div>
+
+<script>
+let currentDistance = 5;
+let detectedData = null;
+
+// Switch tab
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+
+    event.target.classList.add('active');
+    document.getElementById(`tab-${tabName}`).classList.add('active');
+
+    if (tabName === 'wishlist') {
+        loadWishlist();
+    }
+}
+
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.display = 'block';
+    setTimeout(() => { t.style.display = 'none'; }, 3500);
+}
+
+// Open File Picker
+function openFilePicker() {
+    // If mobile, offer camera
+    if (/Mobi|Android|iPhone/i.test(navigator.userAgent)) {
+        document.getElementById('cameraInput').click();
+    } else {
+        document.getElementById('fileInput').click();
+    }
+}
+
+// Client-side image resizing for ultra-fast uploads
+function resizeImage(file, maxDimension = 1024, quality = 0.85) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                let width = img.width;
+                let height = img.height;
+                if (width > maxDimension || height > maxDimension) {
+                    if (width > height) {
+                        height = Math.round((height * maxDimension) / width);
+                        width = maxDimension;
+                    } else {
+                        width = Math.round((width * maxDimension) / height);
+                        height = maxDimension;
+                    }
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            };
+            img.onerror = () => resolve(e.target.result); // Fallback to raw if image object fails
+            img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+// Process Uploaded File
+async function handleFile(file) {
+    if (!file) return;
+
+    const loading = document.getElementById('identifyLoading');
+    const loadingText = document.getElementById('loadingText');
+    loading.style.display = 'block';
+    loadingText.textContent = 'Optimizing image for fast upload...';
+    document.getElementById('reviewBox').style.display = 'none';
+
+    try {
+        const base64Data = await resizeImage(file);
+        loadingText.textContent = 'Analyzing album cover with Claude...';
+
+        const res = await fetch('/api/identify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: base64Data })
+        });
+
+        const data = await res.json();
+        loading.style.display = 'none';
+
+        if (!data.success) {
+            alert(data.message || 'Could not identify album.');
+            return;
+        }
+
+        detectedData = data;
+
+        // Fill form
+        document.getElementById('editArtist').value = data.artist || '';
+        document.getElementById('editAlbum').value = data.album_title || '';
+        document.getElementById('editYear').value = data.album_year || '';
+        document.getElementById('editCoverUrl').value = data.cover_image_url || '';
+        document.getElementById('reviewCover').src = data.cover_image_url || 'https://via.placeholder.com/240x240?text=No+Cover';
+        document.getElementById('editTracks').value = (data.tracklist || []).join('\n');
+
+        // Duplicate banner
+        const dupAlert = document.getElementById('duplicateAlert');
+        if (data.is_duplicate) {
+            dupAlert.style.display = 'block';
+            dupAlert.innerHTML = `⚠️ <strong>Already in collection!</strong> "${data.artist} - ${data.album_title}" is already in Katie's catalog.`;
+        } else {
+            dupAlert.style.display = 'none';
+        }
+
+        document.getElementById('reviewBox').style.display = 'block';
+
+    } catch (err) {
+        loading.style.display = 'none';
+        alert('Error communicating with identification service: ' + err.message);
+    }
+}
+
+function resetUpload() {
+    document.getElementById('reviewBox').style.display = 'none';
+    document.getElementById('cameraInput').value = '';
+    document.getElementById('fileInput').value = '';
+}
+
+async function saveAlbum(force = false) {
+    const btn = document.getElementById('saveAlbumBtn');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    const tracks = document.getElementById('editTracks').value
+        .split('\n')
+        .map(t => t.trim())
+        .filter(t => t.length > 0);
+
+    const artist = document.getElementById('editArtist').value.trim();
+    const album = document.getElementById('editAlbum').value.trim();
+
+    const payload = {
+        artist: artist,
+        album_title: album,
+        album_year: document.getElementById('editYear').value.trim(),
+        cover_image_url: document.getElementById('editCoverUrl').value.trim(),
+        tracklist: tracks,
+        confidence: 'high',
+        force: force
+    };
+
+    try {
+        const res = await fetch('/api/albums', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if (res.status === 409) {
+            const confirmDup = confirm(`⚠️ "${artist} - ${album}" is already in your collection!\n\nDo you want to add a duplicate copy anyway?`);
+            if (confirmDup) {
+                await saveAlbum(true); // retry with force
+                return;
+            }
+        } else if (res.ok) {
+            showToast('✅ Album added to collection!');
+            resetUpload();
+        } else {
+            alert(data.detail || data.message || 'Failed to save album');
+        }
+    } catch (e) {
+        alert('Network error saving album: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '✅ Add to Collection';
+    }
+}
+
+async function handleDeduplicate() {
+    if (!confirm("Scan and clean up duplicate albums in your collection? (Keeps the best record with artwork and removes redundant duplicates)")) return;
+
+    try {
+        const res = await fetch('/api/deduplicate', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            if (data.count === 0) {
+                alert("✨ No duplicates found! Your collection is clean.");
+            } else {
+                const names = data.removed.map(r => `• ${r.artist} - ${r.album_title}`).join('\n');
+                alert(`🧹 Cleaned up ${data.count} duplicate album(s):\n\n${names}`);
+            }
+        } else {
+            alert('Error deduplicating: ' + (data.message || 'Unknown error'));
+        }
+    } catch (e) {
+        alert('Network error: ' + e.message);
+    }
+}
+
+// Recommender
+function selectVibe(distance, btn) {
+    currentDistance = distance;
+    document.querySelectorAll('.vibe-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+}
+
+async function fetchRecommendations() {
+    const btn = document.getElementById('recBtn');
+    const loading = document.getElementById('recLoading');
+    const grid = document.getElementById('recGrid');
+
+    btn.disabled = true;
+    loading.style.display = 'block';
+    grid.innerHTML = '';
+
+    try {
+        const res = await fetch('/api/recommend', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ taste_distance: currentDistance, n_suggestions: 5 })
+        });
+
+        const data = await res.json();
+        loading.style.display = 'none';
+        btn.disabled = false;
+
+        if (data.success && data.albums) {
+            data.albums.forEach(album => {
+                const card = document.createElement('div');
+                card.className = 'rec-card';
+                card.innerHTML = `
+                    <img class="rec-cover" src="${album.cover_url || 'https://via.placeholder.com/200x200?text=Vinyl'}" alt="${album.album}">
+                    <div class="rec-info">
+                        <div>
+                            <div class="rec-artist">${album.artist}</div>
+                            <div class="rec-album">${album.album}</div>
+                        </div>
+                        <button class="btn-wishlist" onclick="addRecToWishlist('${escapeHtml(album.artist)}', '${escapeHtml(album.album)}', this)">
+                            + Wishlist
+                        </button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        } else {
+            alert(data.message || 'Failed to get recommendations');
+        }
+    } catch (e) {
+        loading.style.display = 'none';
+        btn.disabled = false;
+        alert('Error getting recommendations: ' + e.message);
+    }
+}
+
+function escapeHtml(str) {
+    return (str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+async function addRecToWishlist(artist, album, btn) {
+    btn.disabled = true;
+    btn.textContent = 'Adding...';
+
+    try {
+        const res = await fetch('/api/to-buy', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ artist: artist, album_title: album })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+            btn.textContent = '✓ On Wishlist';
+            showToast(`Added ${album} to wishlist`);
+        } else {
+            btn.textContent = 'Already on Wishlist';
+        }
+    } catch (e) {
+        btn.textContent = '+ Wishlist';
+        btn.disabled = false;
+    }
+}
+
+// Wishlist
+async function loadWishlist() {
+    const container = document.getElementById('wishlistContainer');
+    try {
+        const res = await fetch('/api/to-buy');
+        const data = await res.json();
+
+        if (!data.items || data.items.length === 0) {
+            container.innerHTML = '<div style="color: #64748b; font-size: 0.9rem;">Your wishlist is empty! Use the Recommender to find new records.</div>';
+            return;
+        }
+
+        container.innerHTML = '';
+        data.items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'wishlist-item';
+            div.innerHTML = `
+                <div>
+                    <div class="item-artist">${item.artist}</div>
+                    <div class="item-album">${item.album_title} ${item.album_year ? '(' + item.album_year + ')' : ''}</div>
+                </div>
+                <div class="item-actions">
+                    <button class="btn-sm-danger" onclick="deleteWishlistItem(${item.id})">Remove</button>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+    } catch (e) {
+        container.innerHTML = '<div style="color: red;">Error loading wishlist</div>';
+    }
+}
+
+async function addWishlistItem(e) {
+    e.preventDefault();
+    const artist = document.getElementById('wishArtist').value.trim();
+    const album = document.getElementById('wishAlbum').value.trim();
+
+    try {
+        const res = await fetch('/api/to-buy', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ artist: artist, album_title: album })
+        });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('wishArtist').value = '';
+            document.getElementById('wishAlbum').value = '';
+            loadWishlist();
+            showToast('Added to wishlist');
+        } else {
+            alert(data.message || 'Already on wishlist');
+        }
+    } catch (err) {
+        alert('Network error adding wishlist item');
+    }
+}
+
+async function deleteWishlistItem(id) {
+    if (!confirm('Remove this album from your wishlist?')) return;
+    try {
+        const res = await fetch(`/api/to-buy/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            loadWishlist();
+            showToast('Removed from wishlist');
+        }
+    } catch (e) {
+        alert('Error removing item');
+    }
+}
+
+async function handleLogout() {
+    await fetch('/api/logout', { method: 'POST' });
+    window.location.href = '/';
+}
+</script>
+
+</body>
+</html>

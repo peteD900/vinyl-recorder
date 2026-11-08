@@ -22,8 +22,8 @@ class VinylData(BaseModel):
 
 # ==== IDENTIFIER ==== #
 class VinylIdentifier:
-    def __init__(self, llm_choice: str = "openai"):
-        logger.info("Starting Vinly Identifier")
+    def __init__(self, llm_choice: str = "anthropic"):
+        logger.info("Starting Vinyl Identifier")
 
         self.llm = get_llm_client(llm=llm_choice)
 
@@ -65,12 +65,16 @@ class VinylIdentifier:
                 "role": "user",
                 "content": [
                     {
-                        "type": "text",
-                        "text": "What album is this? Identify the artist, title, and year.",
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/jpeg",
+                            "data": image_base64,
+                        },
                     },
                     {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"},
+                        "type": "text",
+                        "text": "What album is this? Identify the artist, title, and year.",
                     },
                 ],
             },

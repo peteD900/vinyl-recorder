@@ -1,9 +1,8 @@
 from vinyl_recorder.llm_client import get_llm_client
 from vinyl_recorder.config import get_logger
-from vinyl_recorder.ghseets import GoogleSheeter
+from vinyl_recorder.database import AlbumRepository
 
 from pydantic import BaseModel
-from typing import List
 
 logger = get_logger()
 
@@ -20,27 +19,18 @@ class RecommendedAlbums(BaseModel):
 
 # ==== ALBUM RECOMMENDER ==== #
 class AlbumRecommender:
-    def __init__(
-        self, sheeter, llm_choice: str = "openai", model_choice: str = "gpt-4o"
-    ):
+    def __init__(self, repo: AlbumRepository, llm_choice: str = "anthropic", model_choice: str = None):
         logger.info("Starting Album Recommender")
 
         self.llm = get_llm_client(llm=llm_choice, model=model_choice)
-        self.sheeter = sheeter
+        self.repo = repo
 
     def build_album_context(self, n_suggestions: int, taste_distance: int) -> str:
         """
-        Pulls in gsheet with all albums and build a string with the full
-        list of artist-album to pass into the LLM as context in order
-        to recommend new albums.
+        Pulls album titles from the database and builds a context string
+        for the LLM to use when recommending new albums.
         """
-
-        # ==== Album input ==== #
-        # From google sheets
-        df_sheet = self.sheeter.df_sheet
-        # df_sheet = df_sheet.head(10)
-
-        album_list = df_sheet["discogs_title"].tolist()
+        album_list = self.repo.get_album_titles()
 
         album_context = "The following is a list of albums I already own and like:\n"
         album_context += "They represent my overall taste in music.\n\n"
@@ -83,14 +73,14 @@ class AlbumRecommender:
             raise ValueError("n_suggestions must be between 1 and 10")
 
         system_prompt = """
-        You are an expert DJ, record collector, and music curator with deep knowledge of albums, 
-        artists, genres, eras, and musical influences. Your job is to recommend albums that a 
-        listener should consider buying based on their existing music taste, which will be 
+        You are an expert DJ, record collector, and music curator with deep knowledge of albums,
+        artists, genres, eras, and musical influences. Your job is to recommend albums that a
+        listener should consider buying based on their existing music taste, which will be
         provided as a list of albums they already own and like.
 
         You must:
 
-         - Analyse the user’s existing albums to infer their musical taste
+         - Analyse the user's existing albums to infer their musical taste
          - Suggest exactly N albums that the user does not already own
          - Choose albums that are appropriate for the specified taste distance value
 
@@ -98,10 +88,10 @@ class AlbumRecommender:
 
          - 1: Extremely close matches (same artists, very similar genres, era, or direct stylistic neighbours)
          - 5: Adjacent and exploratory (related genres, influences, or natural stylistic extensions)
-         - 10: Very exploratory (clearly different, but still plausibly enjoyable given the user’s taste)
+         - 10: Very exploratory (clearly different, but still plausibly enjoyable given the user's taste)
 
         You must prioritise matching the recommendations to the given distance value.
-        Lower distances favour similarity and familiarity; higher distances favour 
+        Lower distances favour similarity and familiarity; higher distances favour
         exploration while remaining musically credible.
 
         For each suggested album:
@@ -148,10 +138,3 @@ class AlbumRecommender:
             album_str += f"{album.artist} - {album.album}\n"
 
         return album_str
-
-
-if __name__ == "__main__":
-    sheeter = GoogleSheeter()
-    suggestor = AlbumRecommender(sheeter=sheeter)
-    results = suggestor.recommend_albums(n_suggestions=2, taste_distance=3)
-    print(suggestor.parse_albums(results))

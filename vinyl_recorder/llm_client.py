@@ -1,58 +1,95 @@
 # LLM client connection
-from openai import OpenAI
+import json
+import anthropic
 from vinyl_recorder.config import Config, get_logger
 
 logger = get_logger()
 
 
-# Setup class incase later want to try switching betweem LLMs
 class LLMClient:
     def __init__(self, api_key: str, model: str):
         logger.info("Starting LLMClient")
-        self.client = OpenAI(api_key=api_key)
+        self.client = anthropic.Anthropic(api_key=api_key)
         self.model = model
 
-    def parse_completion(self, messages, response_format):
-        """
-        For stuctured respones with pydantic use completions.parse
-        """
-        try:
-            completion = self.client.beta.chat.completions.parse(
-                model=self.model, messages=messages, response_format=response_format
-            )
+    def _extract_system(self, messages: list) -> tuple[str, list]:
+        """Separate system messages from user/assistant messages.
 
+        Anthropic requires the system prompt as a separate parameter,
+        not as a message in the messages array.
+        """
+        system_parts = []
+        other_messages = []
+
+        for msg in messages:
+            if msg["role"] == "system":
+                system_parts.append(msg["content"])
+            else:
+                other_messages.append(msg)
+
+        return "\n\n".join(system_parts), other_messages
+
+    def parse_completion(self, messages: list, response_format):
+        """
+        Get structured response using tool_use to match a Pydantic model.
+        """
+        system, user_messages = self._extract_system(messages)
+
+        # Convert pydantic model schema to an Anthropic tool definition
+        tool = {
+            "name": "structured_output",
+            "description": "Return the structured data extracted from the request.",
+            "input_schema": response_format.model_json_schema(),
+        }
+
+        try:
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=4096,
+                system=system,
+                messages=user_messages,
+                tools=[tool],
+                tool_choice={"type": "tool", "name": "structured_output"},
+            )
         except Exception as e:
             logger.error(f"LLM parse failed: {e}")
             raise
 
-        results = completion.choices[0].message.parsed
+        # Extract the tool_use block from the response
+        for block in response.content:
+            if block.type == "tool_use":
+                return response_format.model_validate(block.input)
 
-        return results
+        raise ValueError("No structured output returned from LLM")
 
-    def create_completion(self, messages):
+    def create_completion(self, messages: list) -> str:
         """
-        For non-structured chat responses if required
+        Get a plain text response from the LLM.
         """
-        completion = self.client.chat.completions.create(
-            model=self.model, messages=messages
+        system, user_messages = self._extract_system(messages)
+
+        response = self.client.messages.create(
+            model=self.model,
+            max_tokens=4096,
+            system=system,
+            messages=user_messages,
         )
 
-        return completion
+        return response.content[0].text
 
 
-def get_llm_client(llm="openai", model=Config.OPENAI_MODEL):
-    """
-    Probably wont need a different llm but put this here in case.
-    """
-    if llm == "openai":
-        client = LLMClient(api_key=Config.OPENAI_API_KEY, model=model)
+def get_llm_client(llm="anthropic", model=None):
+    """Factory function for LLM client."""
+    model = model or Config.ANTHROPIC_MODEL
+
+    if llm == "anthropic":
+        client = LLMClient(api_key=Config.ANTHROPIC_API_KEY, model=model)
 
     return client
 
 
 if __name__ == "__main__":
-    model = "gpt-4o"
-    llm = get_llm_client(model=model)
+    llm = get_llm_client()
 
     messages = [
         {"role": "system", "content": "You're a helpful assistant."},
@@ -63,4 +100,4 @@ if __name__ == "__main__":
     ]
 
     response = llm.create_completion(messages=messages)
-    print(response.choices[0].message.content)
+    print(response)
