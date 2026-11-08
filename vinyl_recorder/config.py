@@ -24,7 +24,11 @@ class Config:
 
     # LLM ANTHROPIC
     ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-    ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
+    ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
+
+    # AUTH
+    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "vinyl2026")
+    SECRET_KEY = os.getenv("SECRET_KEY", "vinyl-secret-salt-key-2026")
 
     # TELEGRAM
     BOT_TOKEN = os.getenv("BOT_TOKEN")

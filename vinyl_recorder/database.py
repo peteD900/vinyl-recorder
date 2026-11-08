@@ -73,10 +73,61 @@ class AlbumRepository:
         return cursor.lastrowid
 
     def is_duplicate(self, artist: str, album_title: str) -> bool:
-        """Check if an album already exists in the collection."""
-        sql = "SELECT COUNT(*) FROM albums WHERE artist = ? AND album_title = ?"
+        """Check if an album already exists in the collection (case-insensitive & trimmed)."""
+        if not artist or not album_title:
+            return False
+        sql = """
+            SELECT COUNT(*) FROM albums
+            WHERE LOWER(TRIM(artist)) = LOWER(TRIM(?))
+              AND LOWER(TRIM(album_title)) = LOWER(TRIM(?))
+        """
         count = self.conn.execute(sql, (artist, album_title)).fetchone()[0]
         return count > 0
+
+    def deduplicate_collection(self) -> list[dict]:
+        """
+        Find duplicate albums (same artist and title case-insensitively).
+        Keep the best record (one with cover art and tracklist, or lowest id)
+        and delete redundant duplicates. Returns list of removed album info.
+        """
+        sql = """
+            SELECT LOWER(TRIM(artist)) as norm_artist,
+                   LOWER(TRIM(album_title)) as norm_title,
+                   COUNT(*) as cnt
+            FROM albums
+            GROUP BY norm_artist, norm_title
+            HAVING cnt > 1
+        """
+        duplicate_groups = self.conn.execute(sql).fetchall()
+        removed = []
+
+        for group in duplicate_groups:
+            rows = self.conn.execute(
+                """
+                SELECT id, artist, album_title, cover_image_url, tracklist
+                FROM albums
+                WHERE LOWER(TRIM(artist)) = ? AND LOWER(TRIM(album_title)) = ?
+                ORDER BY
+                    CASE WHEN cover_image_url IS NOT NULL AND cover_image_url != '' THEN 1 ELSE 0 END DESC,
+                    CASE WHEN tracklist IS NOT NULL AND tracklist != '' AND tracklist != '[]' THEN 1 ELSE 0 END DESC,
+                    id ASC
+                """,
+                (group["norm_artist"], group["norm_title"]),
+            ).fetchall()
+
+            if len(rows) > 1:
+                keep_id = rows[0]["id"]
+                for dup in rows[1:]:
+                    dup_id = dup["id"]
+                    self.delete_album(dup_id)
+                    removed.append({
+                        "id": dup_id,
+                        "artist": dup["artist"],
+                        "album_title": dup["album_title"],
+                        "kept_id": keep_id,
+                    })
+
+        return removed
 
     def get_all_albums(self) -> list[dict]:
         """Return all albums as a list of dicts."""
@@ -101,6 +152,12 @@ class AlbumRepository:
         sql = f"UPDATE albums SET {set_clause} WHERE id = ?"
         self.conn.execute(sql, values)
         self.conn.commit()
+
+    def delete_album(self, album_id: int):
+        """Delete an album by its ID."""
+        self.conn.execute("DELETE FROM albums WHERE id = ?", (album_id,))
+        self.conn.commit()
+        logger.info(f"Deleted album: {album_id}")
 
     def find_by_image_name(self, image_name: str) -> dict | None:
         """Find an album by its image_name."""
